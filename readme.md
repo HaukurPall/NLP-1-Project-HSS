@@ -9,3 +9,6 @@ Haukur Páll Jónsson, Santhosh Kumar Rajamanickam, Stian Steinbakken
 
   apt-get install python3.6-gdbm python3.6-dev
   pip install https://github.com/kpu/kenlm/archive/master.zip --user
+
+# Data
+https://nlp.stanford.edu/data/glove.6B.zip
