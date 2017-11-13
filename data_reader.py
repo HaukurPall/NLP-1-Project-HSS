@@ -10,9 +10,13 @@ class DataReader:
           self.words.append(word)
         if line_number > read_limit: break
 
+    self.vocab = set(self.words)
 
   def get_words(self):
     return self.words
+
+  def get_vocabulary(self):
+    return self.vocab
 
   def get_word_indexes(self):
     # Returns a dictionary containing all the words in the vocabulary
