@@ -33,6 +33,7 @@ Create the KenLM binaries. We need to build the whole thing as we have <unk> in 
   cd kenlm/build
   cmake ..
   make -j2
+  cd ../..
 
 Running it
 
@@ -41,7 +42,7 @@ Running it
 
 Querying the model
 
-  python3.6 ken.py lm/penn.klm 
+  python3.6 ken.py lm/penn.klm
 
 
 # Neural Networks
