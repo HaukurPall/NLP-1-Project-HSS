@@ -4,12 +4,18 @@ A project to test different language models.
 2. FFNN
 3. ??
 
+## Steps
+Verify Penn dataset, it looks strange
+How to handle <unk>
+How to work with already computed embeddings?
+
 # Authors
 Haukur Páll Jónsson, Santhosh Kumar Rajamanickam, Stian Steinbakken
 
 # KenLM
 A standard N-gram, probabilistic model which uses Kneser–Ney smoothing.
 https://kheafield.com/code/kenlm/estimation/
+http://masatohagiwara.net/training-an-n-gram-language-model-and-estimating-sentence-probability.html
 
 ## Setup
 - We cloned the kenlm project to our project and build it from source
@@ -35,7 +41,7 @@ Create the KenLM binaries. We need to build the whole thing as we have <unk> in 
   make -j2
   cd ../..
 
-Running it
+## Running
 
   kenlm/build/bin/lmplz --skip_symbols -S 40% -o 3 < data/penn/train.txt > lm/penn.arpa
   kenlm/build/bin/build_binary lm/penn.arpa lm/penn.klm
@@ -43,6 +49,12 @@ Running it
 Querying the model
 
   python3.6 ken.py lm/penn.klm
+
+or
+
+  echo "I am a boy ." | kenlm/build/bin/query lm/penn.klm
+
+## Next steps
 
 
 # Neural Networks
