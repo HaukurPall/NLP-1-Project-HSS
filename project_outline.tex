@@ -18,3 +18,19 @@ https://arxiv.org/abs/1705.07393
 Idea:
 RAN should handle histories better. We might want to measure this.
 Do FF handle P(word) better than the RAN?
+
+Background.
+
+When estimating whether a sentence is a valid sentence of a particular language, language models come in.
+Given a corpus, language models compute a probability over a sentence, the higher probability, the more likely the sentence is to be a part of that language. Most common approach to estimate that probability are language models called N-grams. The most simple N-grams compute the probability of word using MLE. An N-gram makes a simplifying assumption s.t. the probability of a sentence is not dependent on all words in the sentence, but only the N-1 words in front. We then multiply the probabilities of each word together to compute the probability of a sentence. This simple approach lends it self to issues, as we estimate the probabilites of a sentence over a corpus, which is sparse and might not contain all words which we might need to evaluate, but are still valid sentences of a language. Our simple N-gram will give unseen words probability of 0, therefore the sentence will receive a probability of 0. To avoid this problem, we use smoothing s.t. unseen words (and their histories) will receive a positive value. [References to N-grams]
+
+Dataset: https://github.com/pytorch/examples/tree/master/word_language_model/data/penn
+
+We looked at the KenLM N-gram model to begin with[Reference to that]. It uses Kneser-Ney smoothing smoothing and is particularly fast. We used it as our baseline.
+
+A background section, in which you explain what is language modelling, what kind of language models you studied, and what is the problem you focus on. To write this background section, you can use the suggested papers, but also add papers;
+A summary of the relevant literature
+A description of your replication;
+A formal discription of your model(s) and changes/improvements you made compared to the literature
+Analysis of your results
+A conclusion
