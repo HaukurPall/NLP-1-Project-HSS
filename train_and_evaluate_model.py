@@ -9,10 +9,9 @@ import torch.autograd as autograd
 import time
 
 # Constants
-READ_LIMIT = 50 # Currently still very slow since we still get all 400000 word embeddings
-NGRAM_SIZE = 5
+READ_LIMIT = inf
+NGRAM_SIZE = 3
 CONTEXT_SIZE = NGRAM_SIZE - 1
-
 
 def get_max_value_and_index(tensor):
   # this is probably not necessary,

@@ -10,7 +10,7 @@ import time
 # Constants
 WORD_EMBEDDINGS_DIMENSION = 50
 LEARNING_RATE = 0.001
-NUMBER_OF_TRAINING_EPOCHS = 100
+NUMBER_OF_TRAINING_EPOCHS = 1
 LOSS_THRESHOLD = 0.01
 
 class NGramLanguageModeler(nn.Module):
@@ -20,28 +20,36 @@ class NGramLanguageModeler(nn.Module):
     super(NGramLanguageModeler, self).__init__()
     self.embeddings = nn.Embedding(vocab_size, embedding_dim)
     self.embeddings.weight.data.copy_(word_embeddings)
-    self.embeddings = self.embeddings.cuda()
     self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
-    self.linear1 = nn.Linear(context_size * embedding_dim, 64)
-    self.linear1 = self.linear1.cuda()
-    self.linear2 = nn.Linear(64, vocab_size)
-    self.linear2 = self.linear2.cuda()
+    self.embeddings = self.embeddings.cuda()
+    self.layer1 = nn.Linear(context_size * embedding_dim, vocab_size)
+    self.layer1 = self.layer1.cuda()
 
   def forward(self, inputs):
     embeds = self.embeddings(inputs).view((1, -1))
-    out = F.relu(self.linear1(embeds))
-    out = self.linear2(out)
+    out = F.tanh(self.layer1(embeds))
     log_probs = F.log_softmax(out)
     return log_probs
 
 def get_target_else_unknown(lookuptable, target):
-  # TODO: Handle cyclic import so we can import this from train_and_evaluate 
+  # TODO: Handle cyclic import so we can import this from train_and_evaluate
   # instead of duplicate code
   if target in lookuptable:
     return lookuptable[target]
   else:
     return lookuptable["unknown"]
 
+def print_info(i, start_time, trigrams):
+  percentage_done = i/ len(trigrams) * 100
+  t = time.time() - start_time
+
+  print("\n##############################\n")
+  print(str(i) + "/" + str(len(trigrams)), "Epoch is ", "{0:.0f}%".format(percentage_done), "done")
+  print("Current runtime", t, "seconds")
+  minutes_left_of_epoch = (t * (100 / percentage_done) / 60)
+  print("Estimated minutes left of current epoch:", minutes_left_of_epoch)
+  hours, minutes = divmod(minutes_left_of_epoch, 60)
+  print("Which is: ", "%02d:%02d"%(hours,minutes))
 def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddings):
 
   start_time = time.time()
@@ -56,8 +64,7 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
     total_loss = torch.Tensor([0]).cuda()
     for i, (context, target) in enumerate(trigrams):
       if i % 1000 == 1:
-        print(str(i) + "/" + str(len(trigrams)), "Epoch is ", i/ len(trigrams) * 100, "% done", context, target )
-        print("Current runtime", time.time() - start_time)
+        print_info(i, start_time, trigrams)
 
       # Step 1. Prepare the inputs to be passed to the model (i.e, turn the words
       # into integer indices and wrap them in variables)
