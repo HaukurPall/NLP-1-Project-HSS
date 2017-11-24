@@ -9,7 +9,7 @@ import torch.autograd as autograd
 import time
 
 # Constants
-READ_LIMIT = inf
+READ_LIMIT = 1
 NGRAM_SIZE = 3
 CONTEXT_SIZE = NGRAM_SIZE - 1
 
@@ -61,7 +61,11 @@ def get_target_else_unknown(lookuptable, target):
   else:
     return lookuptable["unknown"]
 
-def evaluate_model(model, test_data):
+def save_model(model):
+  # model.save_state_dict("saved_model.pt")
+  torch.save(model.state_dict(), "saved_model.pt")
+
+def evaluate_model(model, test_data, word_to_index):
   test_words = test_data.get_words()
 
   test_trigrams = extract_list_of_ngrams(test_words, NGRAM_SIZE)
@@ -79,6 +83,7 @@ def evaluate_model(model, test_data):
     predicted_word_index = get_max_value_and_index(log_probs)[0]
     assert predicted_word_index != -1, "The index of the predicted word was -1"
 
+    print("Predicted:", predicted_word_index, "Actual:", get_target_else_unknown(word_to_index, target))
     if predicted_word_index == get_target_else_unknown(word_to_index, target):
       correct_predictions += 1
 
@@ -87,6 +92,7 @@ def evaluate_model(model, test_data):
   print("Correct predictions:", correct_predictions/total_predictions)
   print("Correct predictions:", correct_predictions, "out of", total_predictions)
 
+  print("####### Calculating perplexities #######")
   average_perplexity = calculate_average_perplexity(training_data.get_sentences(), model)
   print("Average perplexity:", average_perplexity)
 
@@ -102,10 +108,13 @@ def main():
   print("Done reading data and creating trigrams")
 
   start_time = time.time()
-  trained_model = train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddings)
-  print("Training time: ", time.time() - start_time)
 
-  test_data = DataReader("data/penn/test.txt", read_limit=READ_LIMIT)
-  evaluate_model(trained_model, test_data)
+  trained_model = train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddings)
+  save_model(trained_model)
+
+  print("Final training time: ", time.time() - start_time)
+
+  # test_data = DataReader("data/penn/test.txt", read_limit=READ_LIMIT)
+  # evaluate_model(trained_model, test_data, word_to_index)
 
 main()
