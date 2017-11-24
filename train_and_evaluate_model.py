@@ -62,7 +62,6 @@ def get_target_else_unknown(lookuptable, target):
     return lookuptable["unknown"]
 
 def save_model(model):
-  # model.save_state_dict("saved_model.pt")
   torch.save(model.state_dict(), "saved_model.pt")
 
 def evaluate_model(model, test_data, word_to_index):

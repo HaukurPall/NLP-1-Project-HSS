@@ -13,6 +13,7 @@ LEARNING_RATE = 0.001
 NUMBER_OF_TRAINING_EPOCHS = 10
 LOSS_THRESHOLD = 0.01
 BATCH_SIZE = 1000
+SAVE_INTERVAL = 50000
 
 class NGramLanguageModeler(nn.Module):
 
@@ -67,6 +68,10 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
     for i in range(0, len(trigrams) - BATCH_SIZE, BATCH_SIZE):
       if i > 0: # if i % 1000 == 1:
         print_info(i, start_time, trigrams)
+
+      if i > 0 and i % SAVE_INTERVAL == 0:
+        torch.save(model.state_dict(), "temp_saved_model.pt")
+        print("$$$$$$$ Model saved $$$$$$$")
 
       batch = trigrams[i : i + BATCH_SIZE]
 
