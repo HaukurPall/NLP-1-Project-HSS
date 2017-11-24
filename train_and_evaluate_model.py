@@ -9,7 +9,7 @@ import torch.autograd as autograd
 import time
 
 # Constants
-READ_LIMIT = 1
+READ_LIMIT = inf
 NGRAM_SIZE = 3
 CONTEXT_SIZE = NGRAM_SIZE - 1
 
@@ -38,7 +38,7 @@ def calculate_perplexity(sentence, model):
 
   for context, target in trigrams:
     context_indexes = [get_target_else_unknown(word_to_index, w) for w in context]
-    context_var = autograd.Variable(torch.LongTensor(context_indexes).cuda())
+    context_var = autograd.Variable(torch.LongTensor(context_indexes).cuda(async=True))
 
     log_probs = model(context_var)
     probability = get_max_value_and_index(log_probs)[1]
@@ -76,7 +76,7 @@ def evaluate_model(model, test_data, word_to_index):
   for context, target in test_trigrams:
     context_indexes = [get_target_else_unknown(word_to_index, w) for w in context]
 
-    context_var = autograd.Variable(torch.LongTensor(context_indexes).cuda())
+    context_var = autograd.Variable(torch.LongTensor(context_indexes).cuda(async=True))
 
     log_probs = model(context_var)
 

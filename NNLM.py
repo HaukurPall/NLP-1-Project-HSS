@@ -12,6 +12,7 @@ WORD_EMBEDDINGS_DIMENSION = 50
 LEARNING_RATE = 0.001
 NUMBER_OF_TRAINING_EPOCHS = 10
 LOSS_THRESHOLD = 0.01
+BATCH_SIZE = 1000
 
 class NGramLanguageModeler(nn.Module):
 
@@ -61,43 +62,38 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
 
   for epoch in range(NUMBER_OF_TRAINING_EPOCHS):
     print("epoch:", epoch)
-    total_loss = torch.Tensor([0]).cuda()
-    for i, (context, target) in enumerate(trigrams):
-      if i % 1000 == 1:
+    total_loss = torch.Tensor([0]).cuda(0, async=True)
+
+    for i in range(0, len(trigrams) - BATCH_SIZE, BATCH_SIZE):
+      if i > 0: # if i % 1000 == 1:
         print_info(i, start_time, trigrams)
 
-      # Step 1. Prepare the inputs to be passed to the model (i.e, turn the words
-      # into integer indices and wrap them in variables)
-      context_indexes = [get_target_else_unknown(word_to_index, w) for w in context]
-      context_var = autograd.Variable(torch.LongTensor(context_indexes).cuda())
+      batch = trigrams[i : i + BATCH_SIZE]
 
-      # Step 2. Recall that torch *accumulates* gradients. Before passing in a
-      # new instance, you need to zero out the gradients from the old
-      # instance
       model.zero_grad()
 
-      # Step 3. Run the forward pass, getting log probabilities over next
-      # words
-      log_probs = model(context_var)
+      for context, target in batch:
+        context_indexes = [get_target_else_unknown(word_to_index, w) for w in context]
+        context_var = autograd.Variable(torch.LongTensor(context_indexes).cuda(0, async=True))
 
-      # Step 4. Compute your loss function. (Again, Torch wants the target
-      # word wrapped in a variable)
-      target_index = get_target_else_unknown(word_to_index, target)
+        log_probs = model(context_var)
 
-      loss = loss_function(log_probs, autograd.Variable(
-          torch.LongTensor([target_index]).cuda()))
+        target_index = get_target_else_unknown(word_to_index, target)
 
-      # Step 5. Do the backward pass and update the gradient
-      loss.backward()
+        loss = loss_function(log_probs, autograd.Variable(
+            torch.LongTensor([target_index]).cuda(0, async=True)))
+
+        loss.backward()
+
       optimizer.step()
-
       total_loss += loss.data
 
     total_losses.append(total_loss)
+
     if len(total_losses) > 1:
       l = abs((total_losses[-1] - total_losses[-2])[0])
       print("Current difference in loss:", l)
       if l < LOSS_THRESHOLD:
         break
 
-  return model.cuda()
+  return model.cuda(0, async=True)
