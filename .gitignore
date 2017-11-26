@@ -99,3 +99,7 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# data
+/data/standford/correct_format.txt
+/data/standford/glove.txt
