@@ -1,6 +1,7 @@
-// Tests might fail if you have creative characters in your path.  Sue me.  
+// Tests might fail if you have creative characters in your path.  Sue me.
 #include "util/file_piece.hh"
 
+#include "util/file_stream.hh"
 #include "util/file.hh"
 #include "util/scoped.hh"
 
@@ -8,8 +9,7 @@
 #include <boost/test/unit_test.hpp>
 #include <fstream>
 #include <iostream>
-
-#include <stdio.h>
+#include <cstdio>
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -53,9 +53,27 @@ BOOST_AUTO_TEST_CASE(MMapReadLine) {
   BOOST_CHECK_THROW(test.get(), EndOfFileException);
 }
 
+/* mmap with seek beforehand */
+BOOST_AUTO_TEST_CASE(MMapSeek) {
+  std::fstream ref(FileLocation().c_str(), std::ios::in);
+  ref.seekg(10);
+  scoped_fd file(util::OpenReadOrThrow(FileLocation().c_str()));
+  SeekOrThrow(file.get(), 10);
+  FilePiece test(file.release());
+  std::string ref_line;
+  while (getline(ref, ref_line)) {
+    StringPiece test_line(test.ReadLine());
+    // I submitted a bug report to ICU: http://bugs.icu-project.org/trac/ticket/7924
+    if (!test_line.empty() || !ref_line.empty()) {
+      BOOST_CHECK_EQUAL(ref_line, test_line);
+    }
+  }
+  BOOST_CHECK_THROW(test.get(), EndOfFileException);
+}
+
 #if !defined(_WIN32) && !defined(_WIN64) && !defined(__APPLE__)
 /* Apple isn't happy with the popen, fileno, dup.  And I don't want to
- * reimplement popen.  This is an issue with the test.  
+ * reimplement popen.  This is an issue with the test.
  */
 /* read() implementation */
 BOOST_AUTO_TEST_CASE(StreamReadLine) {
@@ -67,7 +85,7 @@ BOOST_AUTO_TEST_CASE(StreamReadLine) {
 
   FILE *catter = popen(popen_args.c_str(), "r");
   BOOST_REQUIRE(catter);
-  
+
   FilePiece test(dup(fileno(catter)), "file_piece.cc", NULL, 1);
   std::string ref_line;
   while (getline(ref, ref_line)) {
@@ -107,8 +125,8 @@ BOOST_AUTO_TEST_CASE(PlainZipReadLine) {
 }
 
 // gzip stream.  Apple doesn't like popen, fileno, dup.  This is an issue with
-// the test.  
-#ifndef __APPLE__
+// the test.
+#if !defined __APPLE__ && !defined __MINGW32__
 BOOST_AUTO_TEST_CASE(StreamZipReadLine) {
   std::fstream ref(FileLocation().c_str(), std::ios::in);
 
@@ -117,7 +135,7 @@ BOOST_AUTO_TEST_CASE(StreamZipReadLine) {
 
   FILE * catter = popen(command.c_str(), "r");
   BOOST_REQUIRE(catter);
-  
+
   FilePiece test(dup(fileno(catter)), "file_piece.cc.gz", NULL, 1);
   std::string ref_line;
   while (getline(ref, ref_line)) {
@@ -133,6 +151,22 @@ BOOST_AUTO_TEST_CASE(StreamZipReadLine) {
 #endif // __APPLE__
 
 #endif // HAVE_ZLIB
+
+BOOST_AUTO_TEST_CASE(Numbers) {
+  scoped_fd file(MakeTemp(FileLocation()));
+  const float floating = 3.2;
+  {
+    util::FileStream writing(file.get());
+    writing << "94389483984398493890287 " << floating << " 5";
+  }
+  SeekOrThrow(file.get(), 0);
+  util::FilePiece f(file.release());
+  BOOST_CHECK_THROW(f.ReadULong(), ParseNumberException);
+  BOOST_CHECK_EQUAL("94389483984398493890287", f.ReadDelimited());
+  // Yes, exactly equal.  Isn't double-conversion wonderful?
+  BOOST_CHECK_EQUAL(floating, f.ReadFloat());
+  BOOST_CHECK_EQUAL(5, f.ReadULong());
+}
 
 } // namespace
 } // namespace util

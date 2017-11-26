@@ -7,7 +7,26 @@ I do development in master on https://github.com/kpu/kenlm/.  Normally, it works
 The website http://kheafield.com/code/kenlm/ has more documentation.  If you're a decoder developer, please download the latest version from there instead of copying from another decoder.  
 
 ## Compiling
-See BUILDING. 
+Use cmake, see [BUILDING](BUILDING) for more detail.
+```bash
+mkdir -p build
+cd build
+cmake ..
+make -j 4
+```
+
+## Compiling with your own build system
+If you want to compile with your own build system (Makefile etc) or to use as a library, there are a number of macros you can set on the g++ command line or in util/have.hh .  
+
+* `KENLM_MAX_ORDER` is the maximum order that can be loaded.  This is done to make state an efficient POD rather than a vector.  
+* `HAVE_ICU` If your code links against ICU, define this to disable the internal StringPiece and replace it with ICU's copy of StringPiece, avoiding naming conflicts.  
+
+ARPA files can be read in compressed format with these options:
+* `HAVE_ZLIB` Supports gzip.  Link with -lz.
+* `HAVE_BZLIB` Supports bzip2.  Link with -lbz2.
+* `HAVE_XZLIB` Supports xz.  Link with -llzma.
+
+Note that these macros impact only `read_compressed.cc` and `read_compressed_test.cc`.  The bjam build system will auto-detect bzip2 and xz support.  
 
 ## Estimation
 lmplz estimates unpruned language models with modified Kneser-Ney smoothing.  After compiling with bjam, run
@@ -24,11 +43,13 @@ filter takes an ARPA or count file and removes entries that will never be querie
 ```bash
 bin/filter
 ```
-and see http://kheafield.com/code/kenlm/filter.html for more documentation.
+and see http://kheafield.com/code/kenlm/filter/ for more documentation.
 
 ## Querying
 
 Two data structures are supported: probing and trie.  Probing is a probing hash table with keys that are 64-bit hashes of n-grams and floats as values.  Trie is a fairly standard trie but with bit-level packing so it uses the minimum number of bits to store word indices and pointers.  The trie node entries are sorted by word index.  Probing is the fastest and uses the most memory.  Trie uses the least memory and a bit slower.  
+
+As is the custom in language modeling, all probabilities are log base 10.
 
 With trie, resident memory is 58% of IRST's smallest version and 21% of SRI's compact version.  Simultaneously, trie CPU's use is 81% of IRST's fastest version and 84% of SRI's fast version.  KenLM's probing hash table implementation goes even faster at the expense of using more memory.  See http://kheafield.com/code/kenlm/benchmark/.  
 
@@ -43,23 +64,10 @@ Runs on Linux, OS X, Cygwin, and MinGW.
 
 Hideo Okuma and Tomoyuki Yoshimura from NICT contributed ports to ARM and MinGW.  
 
-## Compile-time configuration
-There are a number of macros you can set on the g++ command line or in util/have.hh .  
-
-* `KENLM_MAX_ORDER` is the maximum order that can be loaded.  This is done to make state an efficient POD rather than a vector.  
-* `HAVE_ICU` If your code links against ICU, define this to disable the internal StringPiece and replace it with ICU's copy of StringPiece, avoiding naming conflicts.  
-
-ARPA files can be read in compressed format with these options:
-* `HAVE_ZLIB` Supports gzip.  Link with -lz.  I have enabled this by default.  
-* `HAVE_BZLIB` Supports bzip2.  Link with -lbz2.
-* `HAVE_XZLIB` Supports xz.  Link with -llzma.
-
-Note that these macros impact only `read_compressed.cc` and `read_compressed_test.cc`.  The bjam build system will auto-detect bzip2 and xz support.  
-
 ## Decoder developers
 - I recommend copying the code and distributing it with your decoder.  However, please send improvements upstream.  
 
-- Omit the lm/filter directory if you do not want the language model filter.  Only that and tests depend on Boost.  
+- It's possible to compile the query-only code without Boost, but useful things like estimating models require Boost.
 
 - Select the macros you want, listed in the previous section.  
 
@@ -86,10 +94,10 @@ pip install https://github.com/kpu/kenlm/archive/master.zip
 ### Basic Usage
 ```python
 import kenlm
-model = kenlm.LanguageModel('lm/test.arpa')
-sentence = 'this is a sentence .'
-print(model.score(sentence))
+model = kenlm.Model('lm/test.arpa')
+print(model.score('this is a sentence .', bos = True, eos = True))
 ```
+See [python/example.py](python/example.py) and [python/kenlm.pyx](python/kenlm.pyx) for more, including stateful APIs.  
 
 ---
 

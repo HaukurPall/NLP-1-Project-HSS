@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include <ctype.h>
+#include <cctype>
 
 namespace lm {
 namespace phrase {
@@ -31,14 +31,14 @@ unsigned int ReadMultiple(std::istream &in, Substrings &out) {
       word.clear();
     }
     if (c == ' ') continue;
-    // It's more than just a space.  Close out the phrase.  
+    // It's more than just a space.  Close out the phrase.
     if (!phrase.empty()) {
       sentence_content = true;
       out.AddPhrase(sentence_id, phrase.begin(), phrase.end());
       phrase.clear();
     }
     if (c == '\t' || c == '\v') continue;
-    // It's more than a space or tab: a newline.   
+    // It's more than a space or tab: a newline.
     if (sentence_content) {
       ++sentence_id;
       sentence_content = false;
@@ -48,30 +48,30 @@ unsigned int ReadMultiple(std::istream &in, Substrings &out) {
   return sentence_id + sentence_content;
 }
 
-namespace detail { const StringPiece kEndSentence("</s>"); }
-
 namespace {
-
 typedef unsigned int Sentence;
 typedef std::vector<Sentence> Sentences;
+} // namespace
 
-class Vertex;
+namespace detail {
+
+const StringPiece kEndSentence("</s>");
 
 class Arc {
   public:
     Arc() {}
 
-    // For arcs from one vertex to another.  
-    void SetPhrase(Vertex &from, Vertex &to, const Sentences &intersect) {
+    // For arcs from one vertex to another.
+    void SetPhrase(detail::Vertex &from, detail::Vertex &to, const Sentences &intersect) {
       Set(to, intersect);
       from_ = &from;
     }
 
     /* For arcs from before the n-gram begins to somewhere in the n-gram (right
      * aligned).  These have no from_ vertex; it implictly matches every
-     * sentence.  This also handles when the n-gram is a substring of a phrase. 
+     * sentence.  This also handles when the n-gram is a substring of a phrase.
      */
-    void SetRight(Vertex &to, const Sentences &complete) {
+    void SetRight(detail::Vertex &to, const Sentences &complete) {
       Set(to, complete);
       from_ = NULL;
     }
@@ -87,21 +87,21 @@ class Arc {
     /* When this function returns:
      * If Empty() then there's nothing left from this intersection.
      *
-     * If Current() == to then to is part of the intersection. 
+     * If Current() == to then to is part of the intersection.
      *
      * Otherwise, Current() > to.  In this case, to is not part of the
      * intersection and neither is anything < Current().  To determine if
      * any value >= Current() is in the intersection, call LowerBound again
-     * with the value.   
+     * with the value.
      */
     void LowerBound(const Sentence to);
 
   private:
-    void Set(Vertex &to, const Sentences &sentences);
+    void Set(detail::Vertex &to, const Sentences &sentences);
 
     const Sentence *current_;
     const Sentence *last_;
-    Vertex *from_;
+    detail::Vertex *from_;
 };
 
 struct ArcGreater : public std::binary_function<const Arc *, const Arc *, bool> {
@@ -160,15 +160,15 @@ void Arc::Set(Vertex &to, const Sentences &sentences) {
 
 void Vertex::LowerBound(const Sentence to) {
   if (Empty()) return;
-  // Union lower bound.  
+  // Union lower bound.
   while (true) {
     Arc *top = incoming_.top();
     if (top->Current() > to) {
       current_ = top->Current();
       return;
     }
-    // If top->Current() == to, we still need to verify that's an actual 
-    // element and not just a bound.  
+    // If top->Current() == to, we still need to verify that's an actual
+    // element and not just a bound.
     incoming_.pop();
     top->LowerBound(to);
     if (!top->Empty()) {
@@ -183,7 +183,13 @@ void Vertex::LowerBound(const Sentence to) {
   }
 }
 
-void BuildGraph(const Substrings &phrase, const std::vector<Hash> &hashes, Vertex *const vertices, Arc *free_arc) {
+} // namespace detail
+
+namespace {
+
+void BuildGraph(const Substrings &phrase, const std::vector<Hash> &hashes, detail::Vertex *const vertices, detail::Arc *free_arc) {
+  using detail::Vertex;
+  using detail::Arc;
   assert(!hashes.empty());
 
   const Hash *const first_word = &*hashes.begin();
@@ -207,13 +213,13 @@ void BuildGraph(const Substrings &phrase, const std::vector<Hash> &hashes, Verte
     }
   }
 
-  // Phrases starting at the second or later word in the n-gram.   
+  // Phrases starting at the second or later word in the n-gram.
   Vertex *vertex_from = vertices;
   for (const Hash *word_from = first_word + 1; word_from != &*hashes.end(); ++word_from, ++vertex_from) {
     hash = 0;
     Vertex *vertex_to = vertex_from + 1;
     for (const Hash *word_to = word_from; ; ++word_to, ++vertex_to) {
-      // Notice that word_to and vertex_to have the same index.  
+      // Notice that word_to and vertex_to have the same index.
       hash = util::MurmurHashNative(&hash, sizeof(uint64_t), *word_to);
       // Now hash covers [word_from, word_to].
       if (word_to == last_word) {
@@ -231,17 +237,29 @@ void BuildGraph(const Substrings &phrase, const std::vector<Hash> &hashes, Verte
 
 namespace detail {
 
+// Here instead of header due to forward declaration.
+ConditionCommon::ConditionCommon(const Substrings &substrings) : substrings_(substrings) {}
+
+// Rest of the variables are temporaries anyway
+ConditionCommon::ConditionCommon(const ConditionCommon &from) : substrings_(from.substrings_) {}
+
+ConditionCommon::~ConditionCommon() {}
+
+detail::Vertex &ConditionCommon::MakeGraph() {
+  assert(!hashes_.empty());
+  vertices_.clear();
+  vertices_.resize(hashes_.size());
+  arcs_.clear();
+  // One for every substring.
+  arcs_.resize(((hashes_.size() + 1) * hashes_.size()) / 2);
+  BuildGraph(substrings_, hashes_, &*vertices_.begin(), &*arcs_.begin());
+  return vertices_[hashes_.size() - 1];
+}
+
 } // namespace detail
 
 bool Union::Evaluate() {
-  assert(!hashes_.empty());
-  // Usually there are at most 6 words in an n-gram, so stack allocation is reasonable.  
-  Vertex vertices[hashes_.size()];
-  // One for every substring.  
-  Arc arcs[((hashes_.size() + 1) * hashes_.size()) / 2];
-  BuildGraph(substrings_, hashes_, vertices, arcs);
-  Vertex &last_vertex = vertices[hashes_.size() - 1];
-
+  detail::Vertex &last_vertex = MakeGraph();
   unsigned int lower = 0;
   while (true) {
     last_vertex.LowerBound(lower);
@@ -252,14 +270,7 @@ bool Union::Evaluate() {
 }
 
 template <class Output> void Multiple::Evaluate(const StringPiece &line, Output &output) {
-  assert(!hashes_.empty());
-  // Usually there are at most 6 words in an n-gram, so stack allocation is reasonable.  
-  Vertex vertices[hashes_.size()];
-  // One for every substring.  
-  Arc arcs[((hashes_.size() + 1) * hashes_.size()) / 2];
-  BuildGraph(substrings_, hashes_, vertices, arcs);
-  Vertex &last_vertex = vertices[hashes_.size() - 1];
-
+  detail::Vertex &last_vertex = MakeGraph();
   unsigned int lower = 0;
   while (true) {
     last_vertex.LowerBound(lower);

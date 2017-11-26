@@ -71,12 +71,14 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>C:\Program Files\boost\boost_1_51;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;</IncludePath>
-    <LibraryPath>C:\Program Files\boost\boost_1_51\lib;$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib</LibraryPath>
+    <IncludePath>C:\Program Files\boost\boost_1_51;$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;E:\boost_1_60_0;</IncludePath>
+    <LibraryPath>C:\Program Files\boost\boost_1_51\lib;$(VCInstallDir)lib;$(VCInstallDir)atlmfc\lib;$(WindowsSdkDir)lib;$(FrameworkSDKDir)\lib;E:\boost_1_60_0\stage\lib</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <TargetName>kenlm_$(ProjectName)_x64</TargetName>
+    <IncludePath>$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;E:\boost_1_60_0;</IncludePath>
+    <LibraryPath>$(VCInstallDir)lib\amd64;$(VCInstallDir)atlmfc\lib\amd64;$(WindowsSdkDir)lib\x64;E:\boost_1_60_0\stage\lib;E:\zlib\lib;</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -175,6 +177,7 @@
     <ClCompile Include="..\lm\builder\corpus_count.cc" />
     <ClCompile Include="..\lm\builder\initial_probabilities.cc" />
     <ClCompile Include="..\lm\builder\interpolate.cc" />
+    <ClCompile Include="..\lm\builder\output.cc" />
     <ClCompile Include="..\lm\builder\pipeline.cc" />
     <ClCompile Include="..\lm\builder\print.cc" />
     <ClCompile Include="..\lm\builder\lmplz_main.cc" />

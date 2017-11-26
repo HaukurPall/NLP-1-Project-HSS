@@ -45,8 +45,8 @@
 // conversions from "const char*" to "string" and back again.
 //
 
-#ifndef BASE_STRING_PIECE_H__
-#define BASE_STRING_PIECE_H__
+#ifndef UTIL_STRING_PIECE_H
+#define UTIL_STRING_PIECE_H
 
 #include "util/have.hh"
 
@@ -74,12 +74,18 @@ inline bool operator!=(const StringPiece& x, const StringPiece& y) {
 #endif // old version of ICU
 
 U_NAMESPACE_BEGIN
+
+inline bool starts_with(const StringPiece& longer, const StringPiece& prefix) {
+  int longersize = longer.size(), prefixsize = prefix.size();
+  return longersize >= prefixsize && std::memcmp(longer.data(), prefix.data(), prefixsize) == 0;
+}
+
 #else
 
 #include <algorithm>
 #include <cstddef>
 #include <string>
-#include <string.h>
+#include <cstring>
 
 #ifdef WIN32
 #undef max
@@ -212,7 +218,7 @@ class StringPiece {
   StringPiece substr(size_type pos, size_type n = npos) const;
 
   static int wordmemcmp(const char* p, const char* p2, size_type N) {
-    return memcmp(p, p2, N);
+    return std::memcmp(p, p2, N);
   }
 };
 
@@ -225,6 +231,10 @@ inline bool operator==(const StringPiece& x, const StringPiece& y) {
 
 inline bool operator!=(const StringPiece& x, const StringPiece& y) {
   return !(x == y);
+}
+
+inline bool starts_with(const StringPiece& longer, const StringPiece& prefix) {
+  return longer.starts_with(prefix);
 }
 
 #endif // HAVE_ICU undefined
@@ -257,4 +267,4 @@ U_NAMESPACE_END
 using U_NAMESPACE_QUALIFIER StringPiece;
 #endif
 
-#endif  // BASE_STRING_PIECE_H__
+#endif  // UTIL_STRING_PIECE_H

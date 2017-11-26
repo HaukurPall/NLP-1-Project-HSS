@@ -1,24 +1,22 @@
-#ifndef LM_FILTER_COUNT_IO__
-#define LM_FILTER_COUNT_IO__
+#ifndef LM_FILTER_COUNT_IO_H
+#define LM_FILTER_COUNT_IO_H
 
 #include <fstream>
 #include <iostream>
 #include <string>
 
-#include <err.h>
-
+#include "util/file_stream.hh"
+#include "util/file.hh"
 #include "util/file_piece.hh"
 
 namespace lm {
 
 class CountOutput : boost::noncopyable {
   public:
-    explicit CountOutput(const char *name) : file_(name, std::ios::out) {}
+    explicit CountOutput(const char *name) : file_(util::CreateOrThrow(name)) {}
 
     void AddNGram(const StringPiece &line) {
-      if (!(file_ << line << '\n')) {
-        err(3, "Writing counts file failed");
-      }
+      file_ << line << '\n';
     }
 
     template <class Iterator> void AddNGram(const Iterator &begin, const Iterator &end, const StringPiece &line) {
@@ -30,12 +28,12 @@ class CountOutput : boost::noncopyable {
     }
 
   private:
-    std::fstream file_;
+    util::FileStream file_;
 };
 
 class CountBatch {
   public:
-    explicit CountBatch(std::streamsize initial_read) 
+    explicit CountBatch(std::streamsize initial_read)
       : initial_read_(initial_read) {
       buffer_.reserve(initial_read);
     }
@@ -68,7 +66,7 @@ class CountBatch {
   private:
     std::streamsize initial_read_;
 
-    // This could have been a std::string but that's less happy with raw writes.  
+    // This could have been a std::string but that's less happy with raw writes.
     std::vector<char> buffer_;
 };
 
@@ -88,4 +86,4 @@ template <class Output> void ReadCount(util::FilePiece &in_file, Output &out) {
 
 } // namespace lm
 
-#endif // LM_FILTER_COUNT_IO__
+#endif // LM_FILTER_COUNT_IO_H
