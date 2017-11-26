@@ -2,12 +2,7 @@
 A project to test different language models.
 1. KenLM
 2. FFNN
-3. ??
-
-## Steps
-Verify Penn dataset, it looks strange
-How to handle <unk>
-How to work with already computed embeddings?
+3. RAN
 
 # Authors
 Haukur Páll Jónsson, Santhosh Kumar Rajamanickam, Stian Steinbakken
@@ -41,7 +36,10 @@ Create the KenLM binaries. We need to build the whole thing as we have <unk> in 
   make -j2
   cd ../..
 
+The result of the compilation is committed in the repo but might need recompilation in order to run.
+
 ## Running
+We "ignore" UNK words instead of treating them as a singluar word.
 
   kenlm/build/bin/lmplz --skip_symbols -S 40% -o 3 < data/penn/train.txt > lm/penn.arpa
   kenlm/build/bin/build_binary lm/penn.arpa lm/penn.klm
@@ -52,10 +50,34 @@ Querying the model
 
 or
 
-  echo "I am a boy ." | kenlm/build/bin/query lm/penn.klm
+  cat data/penn/test.txt | kenlm/build/bin/query lm/penn.klm
 
-## Next steps
+## Results
+As expected we get higher perplexity by ignoring the <unk> instead of treating all of them as the same word.
 
+N = 3
+
+  Perplexity including OOVs:	278.1419220649369
+  Perplexity excluding OOVs:	169.1728707928899
+  OOVs:	4794
+  Tokens:	82430
+  Name:query	VmPeak:40216 kB	VmRSS:4144 kB	RSSMax:20928 kB	user:0.036	sys:0.096	CPU:0.133185	real:3.53189
+
+N = 4
+
+  Perplexity including OOVs:	268.04674615356913
+  Perplexity excluding OOVs:	162.85524251588026
+  OOVs:	4794
+  Tokens:	82430
+  Name:query	VmPeak:55648 kB	VmRSS:4216 kB	RSSMax:36576 kB	user:0.044	sys:0.092	CPU:0.138543	real:3.52924
+
+N = 5
+
+  Perplexity including OOVs:	265.48538591471396
+  Perplexity excluding OOVs:	161.2635989567618
+  OOVs:	4794
+  Tokens:	82430
+  Name:query	VmPeak:71900 kB	VmRSS:4304 kB	RSSMax:52892 kB	user:0.04	sys:0.108	CPU:0.151068	real:3.53441
 
 # Neural Networks
 
