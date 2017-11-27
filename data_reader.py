@@ -63,7 +63,6 @@ def get_pretrained_word_indexes(filepath=""):
   return word_to_index, word_embeddings
 
 def update_word_indexes_vocab(word_to_index, vocab):
-
     for word in vocab:
         if word not in word_to_index:
             word_to_index[word] = len(word_to_index)
@@ -79,19 +78,3 @@ def get_embeddings_matrix(word_to_index, embed_dict, embed_dimension):
             pretrained_weight[word_to_index[word]] = embed_dict[word]
 
     return pretrained_weight
-
-# From Stian
-# def get_pretrained_word_indexes():
-#   word_to_index = {}
-#
-#   with open(pretrained_filepath, "r") as f:
-#     for line_number, line in enumerate(f.readlines()):
-#       if line_number != 0: # Skip the first line since it contains length and dimension
-#         word = line.split()[0]
-#         word_to_index[word] = line_number - 1
-#
-#   return word_to_index
-#
-# def get_pretrained_embeddings():
-#   vocab, vec = torchwordemb.load_word2vec_text(pretrained_filepath)
-#   return vocab, vec

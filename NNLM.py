@@ -4,11 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from data_reader import get_pretrained_embeddings
 import time
 
 # Constants
-WORD_EMBEDDINGS_DIMENSION = 50
 LEARNING_RATE = 0.001
 NUMBER_OF_TRAINING_EPOCHS = 10
 LOSS_THRESHOLD = 0.01
@@ -21,7 +19,7 @@ class NGramLanguageModeler(nn.Module):
   def __init__(self, vocab_size, embedding_dim, context_size, word_embeddings):
     super(NGramLanguageModeler, self).__init__()
     self.embeddings = nn.Embedding(vocab_size, embedding_dim)
-    self.embeddings.weight.data.copy_(word_embeddings)
+    self.embeddings.weight.data.copy_(torch.from_numpy(word_embeddings))
     self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
     self.embeddings = self.embeddings.cuda()
     self.layer1 = nn.Linear(context_size * embedding_dim, vocab_size)
@@ -52,13 +50,13 @@ def print_info(i, start_time, trigrams):
   print("Estimated minutes left of current epoch:", minutes_left_of_epoch)
   hours, minutes = divmod(minutes_left_of_epoch, 60)
   print("Which is: ", "%02d:%02d"%(hours,minutes))
-def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddings):
 
+def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddings, embedding_dim):
   start_time = time.time()
 
   total_losses = []
   loss_function = nn.NLLLoss().cuda()
-  model = NGramLanguageModeler(vocab_size, WORD_EMBEDDINGS_DIMENSION, CONTEXT_SIZE, word_embeddings)
+  model = NGramLanguageModeler(vocab_size, embedding_dim, CONTEXT_SIZE, word_embeddings)
   optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
 
   for epoch in range(NUMBER_OF_TRAINING_EPOCHS):
@@ -101,4 +99,4 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
       if l < LOSS_THRESHOLD:
         break
 
-  return model.cuda(0, async=True)
+  return model.cuda()
