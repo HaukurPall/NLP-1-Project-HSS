@@ -101,5 +101,8 @@ ENV/
 .mypy_cache/
 
 # data
-/data/standford/correct_format.txt
-/data/standford/glove.txt
+/data/
+
+# saved models
+*.pt
+/data/
