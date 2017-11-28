@@ -13,6 +13,9 @@ LOSS_THRESHOLD = 0.01
 BATCH_SIZE = 50
 SAVE_INTERVAL = 10000
 
+use_GPU = True
+print("Using GPU: ", use_GPU)
+
 class NGramLanguageModeler(nn.Module):
 
   # Taken straight out of the example. We might want to make our own adjustments here
@@ -21,9 +24,9 @@ class NGramLanguageModeler(nn.Module):
     self.embeddings = nn.Embedding(vocab_size, embedding_dim)
     self.embeddings.weight.data.copy_(torch.from_numpy(word_embeddings))
     # self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
-    self.embeddings = self.embeddings.cuda()
+    self.embeddings = self.embeddings if not use_GPU else self.embeddings.cuda()
     self.layer1 = nn.Linear(context_size * embedding_dim, vocab_size)
-    self.layer1 = self.layer1.cuda()
+    self.layer1 = self.layer1 if not use_GPU else self.layer1.cuda()
 
   def forward(self, inputs):
     embeds = self.embeddings(inputs).view((1, -1))
@@ -55,13 +58,13 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
   start_time = time.time()
 
   total_losses = []
-  loss_function = nn.NLLLoss().cuda()
+  loss_function = nn.NLLLoss() if not use_GPU else nn.NLLLoss().cuda()
   model = NGramLanguageModeler(vocab_size, embedding_dim, CONTEXT_SIZE, word_embeddings)
   optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=LEARNING_RATE)
 
   for epoch in range(NUMBER_OF_TRAINING_EPOCHS):
     print("epoch:", epoch)
-    total_loss = torch.Tensor([0]).cuda(0, async=True)
+    total_loss = torch.Tensor([0]) if not use_GPU else torch.Tensor([0]).cuda(0, async=True)
 
     for i in range(0, len(trigrams) - BATCH_SIZE, BATCH_SIZE):
       if i > 0:
@@ -77,14 +80,16 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
 
       for context, target in batch:
         context_indexes = [get_target_else_unknown(word_to_index, w) for w in context]
-        context_var = autograd.Variable(torch.LongTensor(context_indexes).cuda(0, async=True))
+        context_var = autograd.Variable(torch.LongTensor(context_indexes)) if not use_GPU else \
+            autograd.Variable(torch.LongTensor(context_indexes).cuda(0, async=True))
 
         log_probs = model(context_var)
 
         target_index = get_target_else_unknown(word_to_index, target)
 
-        loss = loss_function(log_probs, autograd.Variable(
-            torch.LongTensor([target_index]).cuda(0, async=True)))
+        target_index_variable = autograd.Variable(torch.LongTensor([target_index])) if not use_GPU \
+            else autograd.Variable(torch.LongTensor([target_index]).cuda(0, async=True))
+        loss = loss_function(log_probs, target_index_variable)
 
         loss.backward()
 
@@ -99,4 +104,4 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
       if l < LOSS_THRESHOLD:
         break
 
-  return model.cuda()
+  return model if not use_GPU else model.cuda()
