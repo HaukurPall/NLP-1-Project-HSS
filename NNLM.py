@@ -7,11 +7,11 @@ import torch.optim as optim
 import time
 
 # Constants
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.01
 NUMBER_OF_TRAINING_EPOCHS = 10
 LOSS_THRESHOLD = 0.01
-BATCH_SIZE = 1000
-SAVE_INTERVAL = 50000
+BATCH_SIZE = 50
+SAVE_INTERVAL = 10000
 
 class NGramLanguageModeler(nn.Module):
 
@@ -20,7 +20,7 @@ class NGramLanguageModeler(nn.Module):
     super(NGramLanguageModeler, self).__init__()
     self.embeddings = nn.Embedding(vocab_size, embedding_dim)
     self.embeddings.weight.data.copy_(torch.from_numpy(word_embeddings))
-    self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
+    # self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
     self.embeddings = self.embeddings.cuda()
     self.layer1 = nn.Linear(context_size * embedding_dim, vocab_size)
     self.layer1 = self.layer1.cuda()
@@ -64,12 +64,12 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
     total_loss = torch.Tensor([0]).cuda(0, async=True)
 
     for i in range(0, len(trigrams) - BATCH_SIZE, BATCH_SIZE):
-      if i > 0: # if i % 1000 == 1:
-        print_info(i, start_time, trigrams)
-
-      if i > 0 and i % SAVE_INTERVAL == 0:
-        torch.save(model.state_dict(), "temp_saved_model.pt")
-        print("$$$$$$$ Model saved $$$$$$$")
+      if i > 0:
+        if i % SAVE_INTERVAL == 0:
+          torch.save(model.state_dict(), "temp_saved_model.pt")
+          print("$$$$$$$ Model saved $$$$$$$")
+        if i % 1000 == 0: # OBS this will not print if the batch size is not a multiple of 10
+          print_info(i, start_time, trigrams)
 
       batch = trigrams[i : i + BATCH_SIZE]
 
