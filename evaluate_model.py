@@ -1,6 +1,23 @@
-test_data = DataReader("data/penn/test.txt", read_limit=READ_LIMIT)
-# TODO: Load model from file
-# evaluate_model(trained_model, test_data, word_to_index)
+from NNLM import NGramLanguageModeler
+from data_reader import DataReader, get_pretrained_word_indexes
+from data_reader import update_word_indexes_vocab, get_embeddings_matrix
+from ngram_helper import extract_list_of_ngrams
+
+from train_model_penn_tree import get_max_index_and_value
+
+import torch
+import torch.autograd as autograd
+
+from math import inf
+
+READ_LIMIT = inf
+WORD_EMBEDDINGS_DIMENSION = 50
+NGRAM_SIZE = 3
+CONTEXT_SIZE = NGRAM_SIZE - 1
+
+pretrained_filepath = "data/glove.6B.50d.txt"
+training_data_filepath = "data/train.txt"
+test_data_filepath = "data/test.txt"
 
 def get_target_else_unknown(lookuptable, target):
   if target in lookuptable:
@@ -25,7 +42,7 @@ def calculate_perplexity(sentence, model, word_to_index):
     context_var = autograd.Variable(torch.LongTensor(context_indexes).cuda(async=True))
 
     log_probs = model(context_var)
-    probability = get_max_value_and_index(log_probs)[1]
+    probability = get_max_index_and_value(log_probs)[1]
     probability_of_sentence += probability
 
   return perplexity(probability_of_sentence, len(sentence))
@@ -54,7 +71,7 @@ def evaluate_model(model, test_data, word_to_index):
 
     log_probs = model(context_var)
 
-    predicted_word_index = get_max_value_and_index(log_probs)[0]
+    predicted_word_index = get_max_index_and_value(log_probs)[0]
     assert predicted_word_index != -1, "The index of the predicted word was -1"
 
     print("Predicted:", predicted_word_index, "Actual:", get_target_else_unknown(word_to_index, target))
@@ -69,3 +86,31 @@ def evaluate_model(model, test_data, word_to_index):
   print("####### Calculating perplexities #######")
   average_perplexity = calculate_average_perplexity(test_data.get_sentences(), model, word_to_index)
   print("Average perplexity:", average_perplexity)
+
+def main():
+  # First load the models as it was, that is loading it with the training sizes and vocab
+  training_data = DataReader(training_data_filepath)
+
+  vocab = training_data.vocab
+
+  # Build a list of trigrams
+  words = training_data.get_words()
+
+  # Get the pretrained word vectors
+  word_to_index, embed_dict = get_pretrained_word_indexes(pretrained_filepath)
+
+  # Update word_to_index and vocabulary
+  word_to_index, vocab = update_word_indexes_vocab(word_to_index, vocab)
+
+  # Get the numpy matrix containing the pretrained word vectors
+  # with randomly initialized unknown words from the corpus
+  word_embeddings = get_embeddings_matrix(word_to_index, embed_dict, WORD_EMBEDDINGS_DIMENSION)
+
+  model = NGramLanguageModeler(len(vocab), 50, CONTEXT_SIZE, word_embeddings)
+  model.load_state_dict(torch.load("AWS_model.pt"))
+
+  test_data = DataReader(test_data_filepath, read_limit=READ_LIMIT)
+
+  evaluate_model(model, test_data, word_to_index)
+
+main()

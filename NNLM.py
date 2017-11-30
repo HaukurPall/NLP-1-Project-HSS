@@ -35,21 +35,19 @@ class NGramLanguageModeler(nn.Module):
     return log_probs
 
 def get_target_else_unknown(lookuptable, target):
-  # TODO: Handle cyclic import so we can import this from train_and_evaluate
-  # instead of duplicate code
   if target in lookuptable:
     return lookuptable[target]
   else:
     return lookuptable["unknown"]
 
 def print_info(i, start_time, trigrams):
-  percentage_done = i/ len(trigrams) * 100
+  percentage_done = i / len(trigrams) * 100
   t = time.time() - start_time
 
   print("\n##############################\n")
   print(str(i) + "/" + str(len(trigrams)), "Epoch is ", "{0:.0f}%".format(percentage_done), "done")
   print("Current runtime", t, "seconds")
-  minutes_left_of_epoch = (t * (100 / percentage_done) / 60)
+  minutes_left_of_epoch = (t * (1 - (100 / percentage_done)) / 60)
   print("Estimated minutes left of current epoch:", minutes_left_of_epoch)
   hours, minutes = divmod(minutes_left_of_epoch, 60)
   print("Which is: ", "%02d:%02d"%(hours,minutes))
@@ -69,7 +67,7 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
     for i in range(0, len(trigrams) - BATCH_SIZE, BATCH_SIZE):
       if i > 0:
         if i % SAVE_INTERVAL == 0:
-          torch.save(model.state_dict(), "temp_saved_model.pt")
+          torch.save(model.state_dict(), "temp_saved_model_2.pt")
           print("$$$$$$$ Model saved $$$$$$$")
         if i % 1000 == 0: # OBS this will not print if the batch size is not a multiple of 10
           print_info(i, start_time, trigrams)

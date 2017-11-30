@@ -15,6 +15,7 @@ class DataReader:
       with open(filepath, "r") as f:
         for line_number, line in enumerate(f.readlines()):
           line = replace_unk_with_unknown(line)
+          # line += " <eos>"
           self.sentences.append(line)
           for word in line.split():
             self.words.append(word)

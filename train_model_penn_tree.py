@@ -23,19 +23,14 @@ def get_max_index_and_value(tensor):
   # but I can't figure out how to get the index of the max element of a tensor.
   best_value = -inf
   best_index = -1
+  # for prob in tensor.data[0]: print(prob)
   for i, value in enumerate(tensor.data[0]):
     if value > best_value:
       best_value = value
       best_index = i
 
+  print("Best value:", best_value)
   return best_index, best_value
-
-def get_target_else_unknown(lookuptable, target):
-  if target in lookuptable:
-    return lookuptable[target]
-
-  else:
-    return lookuptable["unknown"]
 
 def save_model(model):
   torch.save(model.state_dict(), "saved_model.pt")
@@ -71,4 +66,4 @@ def main():
 
   print("Final training time: ", time.time() - start_time)
 
-main()
+# main()
