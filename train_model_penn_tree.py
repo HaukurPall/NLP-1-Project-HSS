@@ -36,8 +36,6 @@ def save_model(model):
   torch.save(model.state_dict(), "saved_model.pt")
 
 def main():
-  training_data = DataReader("data/penn/train.txt", read_limit=READ_LIMIT)
-
   # Read corpus and compile the vocabulary
   training_data = DataReader(training_data_filepath, read_limit=READ_LIMIT)
   vocab = training_data.vocab
@@ -66,4 +64,4 @@ def main():
 
   print("Final training time: ", time.time() - start_time)
 
-# main()
+main()

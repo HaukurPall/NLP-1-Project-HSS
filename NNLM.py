@@ -18,12 +18,11 @@ print("Using GPU: ", use_GPU)
 
 class NGramLanguageModeler(nn.Module):
 
-  # Taken straight out of the example. We might want to make our own adjustments here
   def __init__(self, vocab_size, embedding_dim, context_size, word_embeddings):
     super(NGramLanguageModeler, self).__init__()
     self.embeddings = nn.Embedding(vocab_size, embedding_dim)
     self.embeddings.weight.data.copy_(torch.from_numpy(word_embeddings))
-    # self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
+    self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
     self.embeddings = self.embeddings if not use_GPU else self.embeddings.cuda()
     self.layer1 = nn.Linear(context_size * embedding_dim, vocab_size)
     self.layer1 = self.layer1 if not use_GPU else self.layer1.cuda()
