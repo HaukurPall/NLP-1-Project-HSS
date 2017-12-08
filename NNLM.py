@@ -86,6 +86,7 @@ def train_model(trigrams, vocab_size, CONTEXT_SIZE, word_to_index, word_embeddin
 
         target_index_variable = autograd.Variable(torch.LongTensor([target_index])) if not use_GPU \
             else autograd.Variable(torch.LongTensor([target_index]).cuda(0, async=True))
+        print(target_index_variable)
         loss = loss_function(log_probs, target_index_variable)
 
         loss.backward()
