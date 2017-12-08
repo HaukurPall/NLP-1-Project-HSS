@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
 from torch.nn._functions.rnn import Recurrent, StackedRNN
-
+from torch.autograd import Variable
 
 class RAN(nn.Module):
 
@@ -40,6 +40,8 @@ class RAN(nn.Module):
         hidden, output = func(input, hidden, ((self.weights, self.biases), ))
         return output, hidden
 
+    def init_hidden(self):
+        return Variable(torch.zeros(1, self.hidden_size))
 
 def RANCell(input, hidden, weights, biases):
     w_cx, w_ic, w_ix, w_fc, w_fx = weights
