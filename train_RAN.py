@@ -12,7 +12,13 @@ from math import inf
 from collections import defaultdict
 import time
 
-NGRAM_SIZE = 5
+#### Options
+
+use_GPU = True
+
+#### Constants
+
+NGRAM_SIZE = 8
 HIDDEN_SIZE = 128
 CONTEXT_SIZE = NGRAM_SIZE - 1
 WORD_EMBEDDINGS_DIMENSION = 50
@@ -52,19 +58,21 @@ word_embeddings = torch.from_numpy(word_embeddings)
 
 print("### Done reading data and creating ngrams ###")
 
-def save_model(model):
-    torch.save(model.state_dict(), "saved_model.pt")
+def save_model(model, epoch):
+    torch.save(model.state_dict(), str(epoch) + "_saved_model.pt")
 
 def context_to_variable(context):
     context_tensor = torch.FloatTensor(CONTEXT_SIZE, WORD_EMBEDDINGS_DIMENSION)
     for i in range(len(context)):
         context_tensor[i] = word_embeddings[word_to_index[context[i]]]
 
-    return Variable(context_tensor)
+    variable = Variable(context_tensor)
+    return variable if not use_GPU else variable.cuda()
 
 def word_to_variable(word): # Might not be necessary
     word_tensor = word_embeddings[word_to_index[word]]
-    return Variable(word_tensor)
+    variable = Variable(word_tensor)
+    return variable if not use_GPU else variable.cuda()
 
 def word_from_output(output):
     top_n, top_i = output.data.topk(1)
@@ -72,7 +80,8 @@ def word_from_output(output):
 
     return index_to_word[word_index], word_index
 
-def print_info(context, target_word, outputted_word, loss):
+def print_info(i, context, target_word, outputted_word, loss):
+    print(i)
     print("Context: ", context, "Target word was: ", target_word)
     print("Predicted word was: ", outputted_word)
     print("Loss: ", loss)
@@ -82,36 +91,48 @@ def print_info(context, target_word, outputted_word, loss):
     if target_word == outputted_word[0]:
         print("####### Prediction was right!! ", context, target_word)
 
-def train_RAN():
-    criterion = nn.NLLLoss()
+def train_RAN(epochs):
+    criterion = nn.NLLLoss() if not use_GPU else nn.NLLLoss().cuda()
 
-    ran = RAN(WORD_EMBEDDINGS_DIMENSION, HIDDEN_SIZE, vocab_size)
+    ran = RAN(WORD_EMBEDDINGS_DIMENSION, HIDDEN_SIZE, vocab_size, use_GPU)
+
+    if use_GPU:
+        ran = ran.cuda()
 
     iterations = len(ngrams)
 
-    for i in range(iterations):
-        ran.zero_grad()
-        hidden = ran.init_hidden()
+    for epoch in range(epochs):
+        for i in range(iterations):
+            ran.zero_grad()
+            hidden = ran.init_hidden()
 
-        context, target_word = ngrams[i]
-        context_variable = context_to_variable(context)
+            context, target_word = ngrams[i]
+            context_variable = context_to_variable(context)
 
-        for j in range(context_variable.size()[0]):
-            output, hidden = ran(context_variable[j].view(1, -1), hidden)
+            for j in range(context_variable.size()[0]):
+                output, hidden = ran(context_variable[j].view(1, -1), hidden)
 
-        target_index = word_to_index[target_word]
-        target_variable = Variable(torch.LongTensor([target_index]))
-        outputted_word = word_from_output(output)[0]
+            target_index = word_to_index[target_word]
+            target_variable = Variable(torch.LongTensor([target_index]))
+            if use_GPU:
+                target_variable = target_variable.cuda()
 
-        loss = criterion(output, target_variable)
+            outputted_word = word_from_output(output)[0]
 
-        # Clip gradients to avoid gradient explosion
-        torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
+            loss = criterion(output, target_variable)
 
-        loss.backward(retain_graph=True) # Don't understand why we need this argument
+            # Clip gradients to avoid gradient explosion
+            torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
 
-        print_info(context, target_word, outputted_word, loss)
+            loss.backward(retain_graph=True) # Don't understand why we need this argument
 
-        for p in ran.parameters():
-            p.data.add_(-LEARNING_RATE, p.grad.data)
-train_RAN()
+            if i % 1000 == 0:
+                print("Epoch:", epoch, i, "/", iterations, "{0:.2f}%".format((i * 100) / iterations))
+                print_info(i, context, target_word, outputted_word, loss)
+
+            for p in ran.parameters():
+                p.data.add_(-LEARNING_RATE, p.grad.data)
+
+        save_model(model, epoch)
+
+train_RAN(10)

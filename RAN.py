@@ -7,25 +7,42 @@ from torch.autograd import Variable
 
 class RAN(nn.Module):
 
-    def __init__(self, input_size, hidden_size, vocab_size, nlayers=1, dropout=0.5):
+    def __init__(self, input_size, hidden_size, vocab_size, use_GPU, nlayers=1, dropout=0.5):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.nlayers = nlayers
         self.dropout = dropout
         self.linear = nn.Linear(128, vocab_size)
+        self.use_GPU = use_GPU
 
-        self.w_cx = nn.Parameter(torch.Tensor(hidden_size, input_size))
-        self.w_ic = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
-        self.w_ix = nn.Parameter(torch.Tensor(hidden_size, input_size))
-        self.w_fc = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
-        self.w_fx = nn.Parameter(torch.Tensor(hidden_size, input_size))
+        if use_GPU:
+            self.w_cx = nn.Parameter(torch.Tensor(hidden_size, input_size).cuda())
+            self.w_ic = nn.Parameter(torch.Tensor(hidden_size, hidden_size).cuda())
+            self.w_ix = nn.Parameter(torch.Tensor(hidden_size, input_size).cuda())
+            self.w_fc = nn.Parameter(torch.Tensor(hidden_size, hidden_size).cuda())
+            self.w_fx = nn.Parameter(torch.Tensor(hidden_size, input_size).cuda())
+            self.b_cx = nn.Parameter(torch.Tensor(hidden_size).cuda())
+            self.b_ic = nn.Parameter(torch.Tensor(hidden_size).cuda())
+            self.b_ix = nn.Parameter(torch.Tensor(hidden_size).cuda())
+            self.b_fc = nn.Parameter(torch.Tensor(hidden_size).cuda())
+            self.b_fx = nn.Parameter(torch.Tensor(hidden_size).cuda())
+            self.linear = self.linear.cuda()
+            # Recurrent = Recurrent.cuda()
+            # StackedRNN = StackedRNN.cuda()
 
-        self.b_cx = nn.Parameter(torch.Tensor(hidden_size))
-        self.b_ic = nn.Parameter(torch.Tensor(hidden_size))
-        self.b_ix = nn.Parameter(torch.Tensor(hidden_size))
-        self.b_fc = nn.Parameter(torch.Tensor(hidden_size))
-        self.b_fx = nn.Parameter(torch.Tensor(hidden_size))
+        else:
+            self.w_cx = nn.Parameter(torch.Tensor(hidden_size, input_size))
+            self.w_ic = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
+            self.w_ix = nn.Parameter(torch.Tensor(hidden_size, input_size))
+            self.w_fc = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
+            self.w_fx = nn.Parameter(torch.Tensor(hidden_size, input_size))
+
+            self.b_cx = nn.Parameter(torch.Tensor(hidden_size))
+            self.b_ic = nn.Parameter(torch.Tensor(hidden_size))
+            self.b_ix = nn.Parameter(torch.Tensor(hidden_size))
+            self.b_fc = nn.Parameter(torch.Tensor(hidden_size))
+            self.b_fx = nn.Parameter(torch.Tensor(hidden_size))
 
         self.weights = self.w_cx, self.w_ic, self.w_ix, self.w_fc, self.w_fx
         for w in self.weights:
@@ -39,11 +56,15 @@ class RAN(nn.Module):
         layer = (Recurrent(RANCell), )
         func = StackedRNN(layer, self.nlayers, dropout=self.dropout)
         hidden, output = func(input, hidden, ((self.weights, self.biases), ))
+        if self.use_GPU:
+            hidden, output = hidden.cuda(), output.cuda()
+
         output = F.log_softmax(self.linear(output))
         return output, hidden
 
     def init_hidden(self):
-        return Variable(torch.zeros(1, self.hidden_size))
+        variable = Variable(torch.zeros(1, self.hidden_size))
+        return variable if not self.use_GPU else variable.cuda()
 
 def RANCell(input, hidden, weights, biases):
     w_cx, w_ic, w_ix, w_fc, w_fx = weights
