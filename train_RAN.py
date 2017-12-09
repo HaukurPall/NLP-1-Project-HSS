@@ -16,8 +16,9 @@ NGRAM_SIZE = 5
 HIDDEN_SIZE = 128
 CONTEXT_SIZE = NGRAM_SIZE - 1
 WORD_EMBEDDINGS_DIMENSION = 50
-LEARNING_RATE = 0.05
-READ_LIMIT = 1
+LEARNING_RATE = 0.005
+LOSS_CLIP = 30
+READ_LIMIT = inf
 
 pretrained_embeddings_filepath = "data/glove.6B.50d.txt"
 training_data_filepath = "data/train.txt"
@@ -36,8 +37,10 @@ word_to_index, embed_dict = get_pretrained_word_indexes(pretrained_embeddings_fi
 
 # Update word_to_index and vocabulary
 word_to_index, vocab = update_word_indexes_vocab(word_to_index, vocab)
+vocab_size = len(vocab)
 
 word_to_index = defaultdict(lambda: "unknown", word_to_index)
+index_to_word = {i : word for word, i in word_to_index.items()}
 
 # Get the numpy matrix containing the pretrained word vectors
 # with randomly initialized unknown words for words that do not occur in the pretrained
@@ -63,10 +66,16 @@ def word_to_variable(word): # Might not be necessary
     word_tensor = word_embeddings[word_to_index[word]]
     return Variable(word_tensor)
 
+def word_from_output(output):
+    top_n, top_i = output.data.topk(1)
+    word_index = top_i[0][0]
+
+    return index_to_word[word_index], word_index
+
 def train_RAN():
     criterion = nn.NLLLoss()
 
-    ran = RAN(WORD_EMBEDDINGS_DIMENSION, HIDDEN_SIZE)
+    ran = RAN(WORD_EMBEDDINGS_DIMENSION, HIDDEN_SIZE, vocab_size)
     hidden = ran.init_hidden()
     ran.zero_grad()
 
@@ -80,16 +89,21 @@ def train_RAN():
             output, hidden = ran(context_variable[i].view(1, -1), hidden)
 
         target_index = word_to_index[target_word]
-        print(target_word, target_index)
         target_variable = Variable(torch.LongTensor([target_index]))
+        outputed_word = word_from_output(output)[0]
 
-        print("target:", target_variable)
-        print("output:", output)
         loss = criterion(output, target_variable)
-        print(loss)
-        loss.backward()
+        # loss.data.clamp_(-LOSS_CLIP, LOSS_CLIP)
+        print(i, "Context: ", context, "Target word was: ", target_word)
+        print("Predicted word was: ", outputed_word)
+        print("Loss: ", loss)
+        if loss.data[0] == "nan":
+            print("Gradient exploded...")
+            break
+        if target_word == outputed_word[0]:
+            print("####### Prediction was right!! ", context, target_word)
+        loss.backward(retain_graph=True) # Don't understand why we need this argument
 
         for p in ran.parameters():
             p.data.add_(-LEARNING_RATE, p.grad.data)
-
 train_RAN()

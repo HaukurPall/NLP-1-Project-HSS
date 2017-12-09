@@ -83,9 +83,6 @@ def train(target_tensor, context_tensor):
     for i in range(context_tensor.size()[0]):
         output, hidden = rnn(context_tensor[i].view(1, -1), hidden)
 
-    print(output)
-    print(target_tensor)
-
     loss = criterion(output, target_tensor)
     loss.backward()
 

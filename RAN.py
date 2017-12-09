@@ -7,12 +7,13 @@ from torch.autograd import Variable
 
 class RAN(nn.Module):
 
-    def __init__(self, input_size, hidden_size, nlayers=1, dropout=0.5):
+    def __init__(self, input_size, hidden_size, vocab_size, nlayers=1, dropout=0.5):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.nlayers = nlayers
         self.dropout = dropout
+        self.linear = nn.Linear(128, vocab_size)
 
         self.w_cx = nn.Parameter(torch.Tensor(hidden_size, input_size))
         self.w_ic = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
@@ -38,6 +39,7 @@ class RAN(nn.Module):
         layer = (Recurrent(RANCell), )
         func = StackedRNN(layer, self.nlayers, dropout=self.dropout)
         hidden, output = func(input, hidden, ((self.weights, self.biases), ))
+        output = F.log_softmax(self.linear(output))
         return output, hidden
 
     def init_hidden(self):
