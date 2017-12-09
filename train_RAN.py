@@ -16,7 +16,7 @@ NGRAM_SIZE = 5
 HIDDEN_SIZE = 128
 CONTEXT_SIZE = NGRAM_SIZE - 1
 WORD_EMBEDDINGS_DIMENSION = 50
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.05
 LOSS_CLIP = 30
 READ_LIMIT = inf
 
@@ -72,37 +72,45 @@ def word_from_output(output):
 
     return index_to_word[word_index], word_index
 
+def print_info(context, target_word, outputted_word, loss):
+    print("Context: ", context, "Target word was: ", target_word)
+    print("Predicted word was: ", outputted_word)
+    print("Loss: ", loss)
+    if loss.data[0] == "nan":
+        print("Gradient exploded...")
+
+    if target_word == outputted_word[0]:
+        print("####### Prediction was right!! ", context, target_word)
+
 def train_RAN():
     criterion = nn.NLLLoss()
 
     ran = RAN(WORD_EMBEDDINGS_DIMENSION, HIDDEN_SIZE, vocab_size)
-    hidden = ran.init_hidden()
-    ran.zero_grad()
 
     iterations = len(ngrams)
 
     for i in range(iterations):
+        ran.zero_grad()
+        hidden = ran.init_hidden()
+
         context, target_word = ngrams[i]
         context_variable = context_to_variable(context)
 
-        for i in range(context_variable.size()[0]):
-            output, hidden = ran(context_variable[i].view(1, -1), hidden)
+        for j in range(context_variable.size()[0]):
+            output, hidden = ran(context_variable[j].view(1, -1), hidden)
 
         target_index = word_to_index[target_word]
         target_variable = Variable(torch.LongTensor([target_index]))
-        outputed_word = word_from_output(output)[0]
+        outputted_word = word_from_output(output)[0]
 
         loss = criterion(output, target_variable)
-        # loss.data.clamp_(-LOSS_CLIP, LOSS_CLIP)
-        print(i, "Context: ", context, "Target word was: ", target_word)
-        print("Predicted word was: ", outputed_word)
-        print("Loss: ", loss)
-        if loss.data[0] == "nan":
-            print("Gradient exploded...")
-            break
-        if target_word == outputed_word[0]:
-            print("####### Prediction was right!! ", context, target_word)
+
+        # Clip gradients to avoid gradient explosion
+        torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
+
         loss.backward(retain_graph=True) # Don't understand why we need this argument
+
+        print_info(context, target_word, outputted_word, loss)
 
         for p in ran.parameters():
             p.data.add_(-LEARNING_RATE, p.grad.data)
