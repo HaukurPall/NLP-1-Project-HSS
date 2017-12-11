@@ -101,6 +101,8 @@ def train_RAN(epochs):
 
     iterations = len(ngrams)
 
+    start_time = time.time()
+
     for epoch in range(epochs):
         for i in range(iterations):
             ran.zero_grad()
@@ -119,7 +121,7 @@ def train_RAN(epochs):
 
             outputted_word = word_from_output(output)[0]
 
-            loss = criterion(output, target_variable)
+            loss = criterion(output.view(1, -1), target_variable)
 
             # Clip gradients to avoid gradient explosion
             torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
@@ -128,11 +130,12 @@ def train_RAN(epochs):
 
             if i % 1000 == 0:
                 print("Epoch:", epoch, i, "/", iterations, "{0:.2f}%".format((i * 100) / iterations))
+                print(time.time() - start_time)
                 print_info(i, context, target_word, outputted_word, loss)
 
             for p in ran.parameters():
                 p.data.add_(-LEARNING_RATE, p.grad.data)
 
-        save_model(model, epoch)
+        save_model(ran, epoch)
 
 train_RAN(10)
