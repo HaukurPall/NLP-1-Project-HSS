@@ -18,14 +18,14 @@ use_GPU = True
 
 #### Constants
 
-NGRAM_SIZE = 8
+NGRAM_SIZE = 12
 HIDDEN_SIZE = 128
 CONTEXT_SIZE = NGRAM_SIZE - 1
 WORD_EMBEDDINGS_DIMENSION = 50
-LEARNING_RATE = 0.05
 LOSS_CLIP = 30
 READ_LIMIT = inf
 
+learning_rate = 0.01
 pretrained_embeddings_filepath = "data/glove.6B.50d.txt"
 training_data_filepath = "data/train.txt"
 
@@ -100,10 +100,10 @@ def train_RAN(epochs):
         ran = ran.cuda()
 
     iterations = len(ngrams)
-
     start_time = time.time()
 
     for epoch in range(epochs):
+        learning_rate *= 0.95 # Reduce learning rate each epoch
         for i in range(iterations):
             ran.zero_grad()
             hidden = ran.init_hidden()
@@ -116,15 +116,17 @@ def train_RAN(epochs):
 
             target_index = word_to_index[target_word]
             target_variable = Variable(torch.LongTensor([target_index]))
+
             if use_GPU:
                 target_variable = target_variable.cuda()
 
             outputted_word = word_from_output(output)[0]
 
-            loss = criterion(output.view(1, -1), target_variable)
+            # print(output, target_variable)
+            loss = criterion(output, target_variable)
 
-            # Clip gradients to avoid gradient explosion
-            torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
+            # # Clip gradients to avoid gradient explosion
+            # torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
 
             loss.backward(retain_graph=True) # Don't understand why we need this argument
 
@@ -134,7 +136,7 @@ def train_RAN(epochs):
                 print_info(i, context, target_word, outputted_word, loss)
 
             for p in ran.parameters():
-                p.data.add_(-LEARNING_RATE, p.grad.data)
+                p.data.add_(-learning_rate, p.grad.data)
 
         save_model(ran, epoch)
 

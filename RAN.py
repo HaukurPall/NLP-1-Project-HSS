@@ -28,8 +28,6 @@ class RAN(nn.Module):
             self.b_fc = nn.Parameter(torch.Tensor(hidden_size).cuda())
             self.b_fx = nn.Parameter(torch.Tensor(hidden_size).cuda())
             self.linear = self.linear.cuda()
-            # Recurrent = Recurrent.cuda()
-            # StackedRNN = StackedRNN.cuda()
 
         else:
             self.w_cx = nn.Parameter(torch.Tensor(hidden_size, input_size))
@@ -56,6 +54,7 @@ class RAN(nn.Module):
         layer = (Recurrent(RANCell), )
         func = StackedRNN(layer, self.nlayers, dropout=self.dropout)
         hidden, output = func(input, hidden, ((self.weights, self.biases), ))
+
         if self.use_GPU:
             hidden, output = hidden.cuda(), output.cuda()
 
