@@ -7,46 +7,45 @@ from torch.autograd import Variable
 
 class RAN(nn.Module):
 
-    def __init__(self, input_size, hidden_size, vocab_size, use_GPU, nlayers=1, dropout=0.5):
+    def __init__(self, input_size, vocab_size, word_embeddings, use_GPU, nlayers=1, dropout=0.5):
         super().__init__()
         self.input_size = input_size
-        self.hidden_size = hidden_size
+        self.hidden_size = input_size
         self.nlayers = nlayers
         self.dropout = dropout
-        self.linear = nn.Linear(128, vocab_size)
         self.use_GPU = use_GPU
 
+        # self.embeddings = nn.Embedding(vocab_size, embedding_dim)
+        # self.embeddings.weight.data.copy_(torch.from_numpy(word_embeddings))
+        # self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
+
+        self.linear = nn.Linear(self.hidden_size, vocab_size)
+        # self.linear.weight.data.copy_(word_embeddings)
+        # self.linear.weight.requires_grad = False
+
         if use_GPU:
-            self.w_cx = nn.Parameter(torch.Tensor(hidden_size, input_size).cuda())
-            self.w_ic = nn.Parameter(torch.Tensor(hidden_size, hidden_size).cuda())
-            self.w_ix = nn.Parameter(torch.Tensor(hidden_size, input_size).cuda())
-            self.w_fc = nn.Parameter(torch.Tensor(hidden_size, hidden_size).cuda())
-            self.w_fx = nn.Parameter(torch.Tensor(hidden_size, input_size).cuda())
-            self.b_cx = nn.Parameter(torch.Tensor(hidden_size).cuda())
-            self.b_ic = nn.Parameter(torch.Tensor(hidden_size).cuda())
-            self.b_ix = nn.Parameter(torch.Tensor(hidden_size).cuda())
-            self.b_fc = nn.Parameter(torch.Tensor(hidden_size).cuda())
-            self.b_fx = nn.Parameter(torch.Tensor(hidden_size).cuda())
-            self.linear = self.linear.cuda()
+            self.w_ic = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size).cuda())
+            self.w_ix = nn.Parameter(torch.Tensor(self.hidden_size, input_size).cuda())
+            self.w_fc = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size).cuda())
+            self.w_fx = nn.Parameter(torch.Tensor(self.hidden_size, input_size).cuda())
+
+            self.b_i = nn.Parameter(torch.Tensor(self.hidden_size).cuda())
+            self.b_f = nn.Parameter(torch.Tensor(self.hidden_size).cuda())
 
         else:
-            self.w_cx = nn.Parameter(torch.Tensor(hidden_size, input_size))
-            self.w_ic = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
-            self.w_ix = nn.Parameter(torch.Tensor(hidden_size, input_size))
-            self.w_fc = nn.Parameter(torch.Tensor(hidden_size, hidden_size))
-            self.w_fx = nn.Parameter(torch.Tensor(hidden_size, input_size))
+            self.w_ic = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
+            self.w_ix = nn.Parameter(torch.Tensor(self.hidden_size, input_size))
+            self.w_fc = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
+            self.w_fx = nn.Parameter(torch.Tensor(self.hidden_size, input_size))
 
-            self.b_cx = nn.Parameter(torch.Tensor(hidden_size))
-            self.b_ic = nn.Parameter(torch.Tensor(hidden_size))
-            self.b_ix = nn.Parameter(torch.Tensor(hidden_size))
-            self.b_fc = nn.Parameter(torch.Tensor(hidden_size))
-            self.b_fx = nn.Parameter(torch.Tensor(hidden_size))
+            self.b_i = nn.Parameter(torch.Tensor(self.hidden_size))
+            self.b_f = nn.Parameter(torch.Tensor(self.hidden_size))
 
-        self.weights = self.w_cx, self.w_ic, self.w_ix, self.w_fc, self.w_fx
+        self.weights = self.w_ic, self.w_ix, self.w_fc, self.w_fx
         for w in self.weights:
             init.xavier_uniform(w)
 
-        self.biases = self.b_cx, self.b_ic, self.b_ix, self.b_fc, self.b_fx
+        self.biases = self.b_i, self.b_f
         for b in self.biases:
             b.data.fill_(0)
 
@@ -59,20 +58,19 @@ class RAN(nn.Module):
             hidden, output = hidden.cuda(), output.cuda()
 
         output = F.log_softmax(self.linear(output))
+
         return output, hidden
 
     def init_hidden(self):
         variable = Variable(torch.zeros(1, self.hidden_size))
         return variable if not self.use_GPU else variable.cuda()
 
-def RANCell(input, hidden, weights, biases):
-    w_cx, w_ic, w_ix, w_fc, w_fx = weights
-    b_cx, b_ic, b_ix, b_fc, b_fx = biases
+def RANCell(input, state, weights, biases):
+    w_ic, w_ix, w_fc, w_fx = weights
+    b_i, b_f = biases
+    # OBS: we are not sure if we have to pass in a bias or not
+    i_t = F.sigmoid(F.linear(state, w_ic, b_i) + F.linear(input, w_ix))
+    f_t = F.sigmoid(F.linear(state, w_fc, b_f) + F.linear(input, w_fx))
+    c_t = i_t * input + f_t * state
 
-    ctilde_t = F.linear(input, w_cx, b_cx)
-    i_t = F.sigmoid(F.linear(hidden, w_ic, b_ic) + F.linear(input, w_ix, b_ix))
-    f_t = F.sigmoid(F.linear(hidden, w_fc, b_fc) + F.linear(input, w_fx, b_fx))
-    c_t = i_t * ctilde_t + f_t * hidden
-    h_t = F.tanh(c_t)
-
-    return h_t
+    return c_t

@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.autograd as autograd
 from torch.autograd import Variable
 from RAN import RAN
@@ -18,8 +19,8 @@ use_GPU = True
 
 #### Constants
 
-NGRAM_SIZE = 12
-HIDDEN_SIZE = 128
+NGRAM_SIZE = 5
+BATCH_SIZE = 20
 CONTEXT_SIZE = NGRAM_SIZE - 1
 WORD_EMBEDDINGS_DIMENSION = 50
 LOSS_CLIP = 30
@@ -66,7 +67,7 @@ def context_to_variable(context):
     for i in range(len(context)):
         context_tensor[i] = word_embeddings[word_to_index[context[i]]]
 
-    variable = Variable(context_tensor)
+    variable = Variable(context_tensor.view(1, -1))
     return variable if not use_GPU else variable.cuda()
 
 def word_to_variable(word): # Might not be necessary
@@ -91,10 +92,17 @@ def print_info(i, context, target_word, outputted_word, loss):
     if target_word == outputted_word[0]:
         print("####### Prediction was right!! ", context, target_word)
 
+def get_batch(i):
+    context_batch = tensor.LongTensor(BATCH_SIZE, CONTEXT_SIZE)
+    target_batch = []
+    for x in range(i, i + BATCH_SIZE):
+        context_batch.append(ngrams[x][0])
+        target_batch.append(ngrams[x][1])
+
 def train_RAN(epochs):
     criterion = nn.NLLLoss() if not use_GPU else nn.NLLLoss().cuda()
 
-    ran = RAN(WORD_EMBEDDINGS_DIMENSION, HIDDEN_SIZE, vocab_size, use_GPU)
+    ran = RAN(WORD_EMBEDDINGS_DIMENSION * CONTEXT_SIZE, vocab_size, word_embeddings, use_GPU)
 
     if use_GPU:
         ran = ran.cuda()
@@ -103,16 +111,17 @@ def train_RAN(epochs):
     start_time = time.time()
 
     for epoch in range(epochs):
-        learning_rate *= 0.95 # Reduce learning rate each epoch
-        for i in range(iterations):
+        # learning_rate *= 0.95 # Reduce learning rate each epoch
+
+        for i in range(iterations - BATCH_SIZE):
             ran.zero_grad()
             hidden = ran.init_hidden()
 
             context, target_word = ngrams[i]
             context_variable = context_to_variable(context)
 
-            for j in range(context_variable.size()[0]):
-                output, hidden = ran(context_variable[j].view(1, -1), hidden)
+            # TODO: batch
+            output, hidden = ran(context_variable, hidden)
 
             target_index = word_to_index[target_word]
             target_variable = Variable(torch.LongTensor([target_index]))
