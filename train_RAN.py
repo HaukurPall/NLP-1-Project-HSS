@@ -19,14 +19,14 @@ use_GPU = True
 
 #### Constants
 
-EPOCHS = 10
+EPOCHS = 100
 BATCH_SIZE = 256
 CONTEXT_SIZE = 30
 WORD_EMBEDDINGS_DIMENSION = 50
 LEARNING_RATE = 0.01
 LOSS_CLIP = 30
 
-BATCH_LOG_INTERVAL = 10
+BATCH_LOG_INTERVAL = 20
 READ_LIMIT = inf
 
 pretrained_embeddings_filepath = "data/glove.6B.50d.txt"
@@ -139,15 +139,8 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
             output, hidden = ran(data, hidden)
 
             loss = criterion(output.view(-1, vocab_size), targets)
-            print(loss)
 
             loss.backward(retain_graph=True) # Haukur: I set it to False, want to hear the reasoning why it was set. Stian: Don't understand why we need this argument
-
-            # this print does not work anymore as the context has been removed more or less
-            # if i % 1000 == 0:
-            #     print("Epoch:", epoch, i, "/", iterations, "{0:.2f}%".format((i * 100) / iterations))
-            #     print(time.time() - start_time)
-            #     print_info(i, context, target_word, outputted_word, loss)
 
             # # Clip gradients to avoid gradient explosion
             # torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
@@ -158,11 +151,15 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
             total_loss += loss.data
 
             if batch % BATCH_LOG_INTERVAL == 0 and batch > 0:
+                print("Epoch: ", epoch)
+                print("batch", batch, "out of ", training_data.size(0) // BATCH_SIZE)
                 cur_loss = total_loss[0] / BATCH_LOG_INTERVAL
+                print("Loss", loss)
                 print("current perplexity:", exp(cur_loss))
                 total_loss = 0
 
-        save_model(ran, epoch)
+        if epoch % 10 == 0:
+            save_model(ran, epoch)
 
 train_RAN(training_data=training_data, \
           learning_rate=LEARNING_RATE, \
