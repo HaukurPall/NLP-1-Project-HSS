@@ -7,21 +7,26 @@ from torch.autograd import Variable
 
 class RAN(nn.Module):
 
-    def __init__(self, input_size, vocab_size, word_embeddings, use_GPU, nlayers=1, dropout=0.5):
+    def __init__(self, input_size, word_embeddings, use_GPU, dropout=0.5):
         super().__init__()
         self.input_size = input_size
+        # we use the same size for input and hidden
         self.hidden_size = input_size
-        self.nlayers = nlayers
-        self.dropout = dropout
+        self.dropout = nn.Dropout(dropout)
         self.use_GPU = use_GPU
+        vocab_size = word_embeddings.size(0)
+        embeddings_dimension = word_embeddings.size(1)
 
-        # self.embeddings = nn.Embedding(vocab_size, embedding_dim)
-        # self.embeddings.weight.data.copy_(torch.from_numpy(word_embeddings))
-        # self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
+        # we use the pretrained word embeddings
+        self.embeddings = nn.Embedding(vocab_size, embeddings_dimension)
+        self.embeddings.weight.data.copy_(word_embeddings)
+        self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
 
         self.linear = nn.Linear(self.hidden_size, vocab_size)
-        # self.linear.weight.data.copy_(word_embeddings)
-        # self.linear.weight.requires_grad = False
+        self.linear.weight.data.copy_(word_embeddings)
+        # do not train the
+        self.linear.weight.requires_grad = False
+        self.linear.bias.data.fill_(0)
 
         if use_GPU:
             self.w_ic = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size).cuda())
@@ -50,19 +55,26 @@ class RAN(nn.Module):
             b.data.fill_(0)
 
     def forward(self, input, hidden):
+        # apply dropout to word_embeddings
+        input = self.dropout(self.embeddings(input))
         layer = (Recurrent(RANCell), )
-        func = StackedRNN(layer, self.nlayers, dropout=self.dropout)
+        # we implicitily set the layers to 1
+        func = StackedRNN(layer, 1, dropout=self.dropout)
+        # we apply the RAN cell
         hidden, output = func(input, hidden, ((self.weights, self.biases), ))
-
+        # apply dropout to output
+        output = self.dropout(output)
         if self.use_GPU:
             hidden, output = hidden.cuda(), output.cuda()
+        # we decode (from hidden to word_embeddings)
+        decoded = self.linear(output.view(output.size(0)*output.size(1), output.size(2)))
+        # and return the output nicely formatted for the loss function
+        decoded_formatted = decoded.view(output.size(0), output.size(1), decoded.size(1))
+        return decoded_formatted, hidden
 
-        output = F.log_softmax(self.linear(output))
-
-        return output, hidden
-
-    def init_hidden(self):
-        variable = Variable(torch.zeros(1, self.hidden_size))
+    def init_hidden(self, batch_size):
+        # implicitily set the layers to 1
+        variable = Variable(torch.zeros(1, batch_size, self.hidden_size))
         return variable if not self.use_GPU else variable.cuda()
 
 def RANCell(input, state, weights, biases):
