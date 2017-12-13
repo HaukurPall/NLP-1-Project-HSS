@@ -83,7 +83,17 @@ N = 5
 
 ## RAN
 Original code using tensorflow https://github.com/kentonl/ran
+Pytorch: https://github.com/bheinzerling/ran
 
 # Data
 - Training/Test/Valid = Penn
 - Embeddings = https://nlp.stanford.edu/data/glove.6B.zip
+
+# Notes
+use dropout (see https://arxiv.org/abs/1510.00726 section 6.4 ) - this randomly drops out e.g. 50% of the units of your layer during training, making sure the network cannot rely on a single specific weight at any time. In Pytorch, dropout is enabled if you run ```model.train()``` in your training loop, and it is disabled if you run ```model.eval()```. You can just specify it as another layer in your model:
+self.dropout = nn.Dropout(p=0.5, inplace=False)
+use weight decay. This is implemented in optim.SGD as a parameter. You can use e.g. weight_decay=1e-6. This prevents weights from growing too large, which helps generalization. Weight decay is similar to L2 regularization (see https://algorithmsdatascience.quora.com/Weight-decay-vs-L2-regularization )
+and (3), hopefully you are doing this already: shuffle your training set during training! an easy way to do this is to select a random integer in the range of the number of tokens in your training set, and then get the (n-1) words after that to make a training example. If you do this many times, on expectation you will cover the whole training set after seeing M examples (where M is the number of tokens in train).
+
+From https://openreview.net/forum?id=HJOQ7MgAW&noteId=ByUL_Swbz:
+All comparison against LSTMs (and of course, any other architectures) should be done carefully, especially when there is evidence that LSTMs weren't properly tuned. For instance, Melis et al. (https://arxiv.org/pdf/1707.05589.pdf) point out that LSTMs if tuned properly can outperform most state-of-the-art models. In Melis et al. LSTMs achieve 59.6 on PTB, whereas the authors' LSTMs reach 78.8, which is much much far behind.
