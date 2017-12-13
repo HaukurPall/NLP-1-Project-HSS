@@ -9,13 +9,13 @@ from data_reader import DataReader, get_pretrained_word_indexes
 from data_reader import update_word_indexes_vocab, get_embeddings_matrix
 from ngram_helper import extract_list_of_ngrams
 
-from math import inf
+from math import inf, exp
 from collections import defaultdict
 import time
 
 #### Options
 
-use_GPU = False
+use_GPU = True
 
 #### Constants
 
@@ -26,7 +26,7 @@ WORD_EMBEDDINGS_DIMENSION = 50
 LEARNING_RATE = 0.01
 LOSS_CLIP = 30
 
-BATCH_LOG_INTERVAL = 2
+BATCH_LOG_INTERVAL = 10
 READ_LIMIT = inf
 
 pretrained_embeddings_filepath = "data/glove.6B.50d.txt"
@@ -152,13 +152,14 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
             # # Clip gradients to avoid gradient explosion
             # torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
             for p in ran.parameters():
-                p.data.add_(-learning_rate, p.grad.data)
+                if p.requires_grad:
+                    p.data.add_(-learning_rate, p.grad.data)
 
             total_loss += loss.data
 
             if batch % BATCH_LOG_INTERVAL == 0 and batch > 0:
-                cur_loss = total_loss[0] / args.log_interval
-                print("current perplexity:", math.exp(cur_loss))
+                cur_loss = total_loss[0] / BATCH_LOG_INTERVAL
+                print("current perplexity:", exp(cur_loss))
                 total_loss = 0
 
         save_model(ran, epoch)
