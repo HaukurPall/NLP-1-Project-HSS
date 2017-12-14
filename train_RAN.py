@@ -16,7 +16,7 @@ import time
 
 #### Options
 
-use_GPU = True
+use_GPU = False
 
 #### Constants
 
@@ -24,7 +24,7 @@ EPOCHS = 100
 BATCH_SIZE = 20
 EVAL_BATCH_SIZE = BATCH_SIZE
 CONTEXT_SIZE = 30
-WORD_EMBEDDINGS_DIMENSION = 50
+WORD_EMBEDDINGS_DIMENSION = 100
 LEARNING_RATE = 1
 LOSS_CLIP = 30
 
@@ -39,7 +39,6 @@ timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
 
 timestamp_signature = "{}_{}_batch_{:d}_embed_{}_learn_{}".format("RAN", timestamp, BATCH_SIZE, WORD_EMBEDDINGS_DIMENSION, str(LEARNING_RATE)[:4])
 perplexity_filepath = "perplexities/" + timestamp_signature + ".txt"
-print(perplexity_filepath)
 
 def prepare_dictionaries(training_data):
     vocab = training_data.get_vocabulary()
