@@ -28,6 +28,8 @@ WORD_EMBEDDINGS_DIMENSION = 100
 LEARNING_RATE = 1
 LOSS_CLIP = 15
 
+IMPROVEMENT_EPSILON = 10
+
 BATCH_LOG_INTERVAL = 100
 READ_LIMIT = inf
 
@@ -132,6 +134,17 @@ def repackage_hidden(hidden):
     else:
         return tuple(repackage_hidden(v) for v in hidden)
 
+def has_improved(checkpoint_perplexities):
+    if len(checkpoint_perplexities) < 30:
+        # We don't want to reduce the learning rate if have not made 30 checkpoints yet
+        return True
+
+    average = sum([perp for perp in checkpoint_perplexities[-30:]]) / 30
+    print("Improvement", checkpoint_perplexities[-1] - average)
+    if abs(checkpoint_perplexities[-1] - average) < IMPROVEMENT_EPSILON:
+        return False
+    return True
+
 def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings, use_GPU):
     criterion = nn.CrossEntropyLoss() if not use_GPU else nn.CrossEntropyLoss().cuda()
 
@@ -141,6 +154,9 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
         ran = ran.cuda()
 
     start_time = time.time()
+
+    checkpoint_counter = 0
+    checkpoint_perplexities = []
 
     for epoch in range(epochs):
         # learning_rate *= 0.95 # Reduce learning rate each epoch
@@ -165,6 +181,14 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
             loss = criterion(output.view(-1, vocab_size), targets)
 
             loss.backward() # Haukur: I set it to False, want to hear the reasoning why it was set. Stian: Don't understand why we need this argument
+
+            checkpoint_counter += 1
+            if checkpoint_counter == 100:
+                checkpoint_counter = 0
+                checkpoint_perplexities.add(evaluate(validation_data, ran, criterion))
+                if not has_improved(checkpoint_perplexities):
+                    learning_rate *= 0.1
+                    print("Reduced learning rate to", learning_rate)
 
             # Clip gradients to avoid gradient explosion
             torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
