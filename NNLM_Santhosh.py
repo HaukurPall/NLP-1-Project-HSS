@@ -3,6 +3,11 @@ from data_reader import update_word_indexes_vocab, get_embeddings_matrix
 from ngram_helper import extract_list_of_ngrams
 from math import inf
 import time
+import torch
+import torch.autograd as autograd
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 
 # Constants
 READ_LIMIT = inf # Manually reset if we want faster processing

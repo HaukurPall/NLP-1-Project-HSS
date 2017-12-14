@@ -19,7 +19,7 @@ use_GPU = True
 
 #### Constants
 
-EPOCHS = 1000
+EPOCHS = 100
 BATCH_SIZE = 16
 EVAL_BATCH_SIZE = BATCH_SIZE
 CONTEXT_SIZE = 30
@@ -115,6 +115,8 @@ def save_perplexity(filepath, perplexity, epoch):
     with open(filepath, "a") as f:
         f.write(str(epoch) + " " + str(perplexity))
 
+    return data, target
+
 def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings, use_GPU):
     criterion = nn.CrossEntropyLoss() if not use_GPU else nn.CrossEntropyLoss().cuda()
 
@@ -126,8 +128,7 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
     start_time = time.time()
 
     for epoch in range(epochs):
-        if epoch > 0 and epoch % 10 == 0:
-          learning_rate *= 0.95 # Reduce learning rate each epoch
+        # learning_rate *= 0.95 # Reduce learning rate each epoch
 
         # turn on dropouts
         total_loss = 0

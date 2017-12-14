@@ -15,7 +15,7 @@ class DataReader:
       with open(filepath, "r") as f:
         for line_number, line in enumerate(f.readlines()):
           line = replace_unk_with_unknown(line)
-          # line += " <eos>"
+          line += " <eos>"
           self.sentences.append(line)
           for word in line.split():
             self.words.append(word)
@@ -41,6 +41,14 @@ class DataReader:
       word_to_index[word]
 
     return word_to_index
+
+  def get_word_to_index_to_word(self):
+    w2i = defaultdict(lambda: len(w2i))
+    i2w = dict()
+    for w in self.words:
+      i2w[w2i[w]] = w # trick
+    return w2i, i2w
+
 
 def replace_unk_with_unknown(sentence):
   return sentence.replace("<unk>", "unknown")

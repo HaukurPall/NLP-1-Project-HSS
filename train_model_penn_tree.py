@@ -18,26 +18,10 @@ WORD_EMBEDDINGS_DIMENSION = 50
 pretrained_filepath = "data/glove.6B.50d.txt"
 training_data_filepath = "data/train.txt"
 
-def get_max_index_and_value(tensor):
-  # this is probably not necessary,
-  # but I can't figure out how to get the index of the max element of a tensor.
-  best_value = -inf
-  best_index = -1
-  # for prob in tensor.data[0]: print(prob)
-  for i, value in enumerate(tensor.data[0]):
-    if value > best_value:
-      best_value = value
-      best_index = i
-
-  print("Best value:", best_value)
-  return best_index, best_value
-
 def save_model(model):
   torch.save(model.state_dict(), "saved_model.pt")
 
 def main():
-  training_data = DataReader("data/penn/train.txt", read_limit=READ_LIMIT)
-
   # Read corpus and compile the vocabulary
   training_data = DataReader(training_data_filepath, read_limit=READ_LIMIT)
   vocab = training_data.vocab
@@ -66,4 +50,4 @@ def main():
 
   print("Final training time: ", time.time() - start_time)
 
-# main()
+main()

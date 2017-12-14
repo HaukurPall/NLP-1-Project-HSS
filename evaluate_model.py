@@ -3,8 +3,6 @@ from data_reader import DataReader, get_pretrained_word_indexes
 from data_reader import update_word_indexes_vocab, get_embeddings_matrix
 from ngram_helper import extract_list_of_ngrams
 
-from train_model_penn_tree import get_max_index_and_value
-
 import torch
 import torch.autograd as autograd
 
@@ -71,7 +69,7 @@ def evaluate_model(model, test_data, word_to_index):
 
     log_probs = model(context_var)
 
-    predicted_word_index = get_max_index_and_value(log_probs)[0]
+    predicted_word_value, predicted_word_index = log_probs.data.topk(1)
     assert predicted_word_index != -1, "The index of the predicted word was -1"
 
     print("Predicted:", predicted_word_index, "Actual:", get_target_else_unknown(word_to_index, target))
