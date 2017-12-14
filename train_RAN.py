@@ -21,7 +21,7 @@ use_GPU = True
 #### Constants
 
 EPOCHS = 100
-BATCH_SIZE = 16
+BATCH_SIZE = 20
 EVAL_BATCH_SIZE = BATCH_SIZE
 CONTEXT_SIZE = 30
 WORD_EMBEDDINGS_DIMENSION = 50
@@ -37,7 +37,7 @@ validation_data_filepath = "data/valid.txt"
 
 timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
 
-perplexity_filepath = str(timestamp) + "_valid.txt"
+perplexity_filepath = "{}_{}_batch_{:d}_embed_{}_learn_{}.txt".format("RAN", timestamp, BATCH_SIZE, WORD_EMBEDDINGS_DIMENSION, str(LEARNING_RATE)[:4])
 print(perplexity_filepath)
 
 def prepare_dictionaries(training_data):
@@ -136,6 +136,8 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
 
     for epoch in range(epochs):
         # learning_rate *= 0.95 # Reduce learning rate each epoch
+        if epoch > 6:
+            LEARNING_RATE /= 1.2
 
         # turn on dropouts
         total_loss = 0
