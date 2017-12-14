@@ -7,8 +7,9 @@ from torch.autograd import Variable
 from data_reader import DataReader, get_pretrained_word_indexes
 from data_reader import update_word_indexes_vocab, get_embeddings_matrix, convert_long_tensor
 from ngram_helper import extract_list_of_ngrams
-from math import inf
+from math import inf, exp
 import time
+from datetime import datetime
 from model_LSTM import LSTMModel
 
 use_GPU = False
@@ -21,15 +22,21 @@ NUM_HIDDEN_UNITS = 50
 NUM_LAYERS = 1
 DROPOUT_PROB = 0.2
 BATCH_SIZE = 10
-SEQ_LENGTH = 30 # Default: Trigram
-NUM_EPOCHS = 2
-LEARNING_RATE = 0.001
+EVAL_BATCH_SIZE = BATCH_SIZE
+SEQ_LENGTH = 30
+NUM_EPOCHS = 100
+LEARNING_RATE = 0.01
+BATCH_LOG_INTERVAL = 100
 
 # File paths
-embedding_path = "data/glove.6B.50d.txt"
+embedding_path = "data/glove.6B.{}d.txt".format(EMBEDDING_DIM)
 train_data_path = "data/train.txt"
 valid_data_path = "data/valid.txt"
 
+timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
+
+timestamp_signature = "{}_{}_batch_{:d}_embed_{}_learn_{}".format("LSTM", timestamp, BATCH_SIZE, EMBEDDING_DIM, str(LEARNING_RATE)[:4])
+perplexity_filepath = "perplexities/" + timestamp_signature + ".txt"
 
 torch.manual_seed(1111)
 if use_GPU:
@@ -59,6 +66,13 @@ def repackage_hidden(h):
     else:
         return tuple(repackage_hidden(v) for v in h)
 
+validation_data = DataReader(valid_data_path, read_limit=READ_LIMIT)
+validation_words = validation_data.get_words()
+valid_word_to_ix,  _ = validation_data.get_word_to_index_to_word()
+# validation_words_tensor =  convert_long_tensor(validation_words, valid_word_to_ix, validation_words)
+validation_words_tensor = torch.LongTensor([valid_word_to_ix[word] for word in validation_words])
+valid_data = batchify(validation_words_tensor, BATCH_SIZE)
+
 # Read corpus and compile the vocabulary
 training_data = DataReader(train_data_path, read_limit=READ_LIMIT)
 vocab = training_data.get_vocabulary()
@@ -79,28 +93,53 @@ if use_pretrained:
 # print('vocab size',vocab_size)
 # print('embed',torch.from_numpy(word_embeddings).size(0))
 # Convert the training_data into Long Tensors
-words_tensor =  convert_long_tensor(words, word_to_ix, words_size)
+
+# words_tensor =  convert_long_tensor(words, word_to_ix, words_size)
+words_tensor = torch.LongTensor([word_to_ix[word] for word in words])
 # print('words_tensor', words_tensor)
 train_data = batchify(words_tensor, BATCH_SIZE)
 # print('train_data', train_data)
 
 # Build RNN/LSTM model
-model = LSTMModel(vocab_size, EMBEDDING_DIM, NUM_HIDDEN_UNITS, NUM_LAYERS, DROPOUT_PROB, word_embeddings, use_pretrained)
+lstm = LSTMModel(vocab_size, EMBEDDING_DIM, NUM_HIDDEN_UNITS, NUM_LAYERS, DROPOUT_PROB, word_embeddings, use_pretrained, tie_weights=True)
 if use_GPU:
-    model.cuda()
+    lstm.cuda()
 
 loss_function = nn.CrossEntropyLoss()
 
+def evaluate(data_source, lstm, loss_function):
+    # Turn on evaluation mode which disables dropout.
+    lstm.eval()
+    total_loss = 0
+    for i in range(0, data_source.size(0) - 1, EVAL_BATCH_SIZE):
+        hidden = lstm.init_hidden(EVAL_BATCH_SIZE)
+        data, targets = get_batch(data_source, i, evaluation=True)
+
+        output, hidden = lstm(data, hidden)
+        output_flat = output.view(-1, vocab_size)
+        total_loss += len(data) * loss_function(output_flat, targets).data
+
+    return total_loss[0] / len(data_source)
+
+def save_perplexity(filepath, perplexity, epoch):
+    with open(filepath, "a") as f:
+        f.write(str(epoch) + " " + str(perplexity) + "\n")
+    return True
+
+def save_model(model, epoch):
+    torch.save(model.state_dict(), "saved_models/" + timestamp_signature + str(epoch) + ".pt")
 
 def train():
 
+    learning_rate = LEARNING_RATE
     for epoch in range(1, NUM_EPOCHS +1):
         # Turn on training mode which enables dropout.
-        lr = LEARNING_RATE
-        model.train()
+        if epoch > 6:
+          learning_rate /= 1.2
+        lstm.train()
         total_loss = 0
         start_time = time.time()
-        hidden = model.init_hidden(BATCH_SIZE)
+        hidden = lstm.init_hidden(BATCH_SIZE)
         for batch, i in enumerate(range(0, train_data.size(0) - 1, SEQ_LENGTH)):
             # print('batch',batch)
             # print('len source',train_data.size(0))
@@ -109,8 +148,8 @@ def train():
             # print('targets',targets)
             # break
             hidden = repackage_hidden(hidden)
-            model.zero_grad()
-            output, hidden = model(data, hidden)
+            lstm.zero_grad()
+            output, hidden = lstm(data, hidden)
             # print('output', output)
             # print('output view', output.view(-1, vocab_size))
             loss = loss_function(output.view(-1, vocab_size), targets)
@@ -120,22 +159,37 @@ def train():
 
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
             # torch.nn.utils.clip_grad_norm(model.parameters(), 0.25)
-            for p in model.parameters():
+            for p in lstm.parameters():
                 if p.requires_grad:
-                    p.data.add_(-lr, p.grad.data)
+                    p.data.add_(-learning_rate, p.grad.data)
 
             total_loss += loss.data
 
-            if batch % 200 == 0 and batch > 0:
-                cur_loss = total_loss[0] / 200
-                elapsed = time.time() - start_time
-                print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
-                        'loss {:5.2f} | ppl {:8.2f}'.format(
-                        epoch, batch, len(train_data) // SEQ_LENGTH, lr,
-                        elapsed * 1000 / 200, cur_loss, math.exp(cur_loss)))
+            if batch % BATCH_LOG_INTERVAL == 0 and batch > 0:
+                print("Epoch: ", epoch)
+                print("batch", batch, "out of ", train_data.size(0) // BATCH_SIZE)
+                cur_loss = total_loss[0] / BATCH_LOG_INTERVAL
+                print("Loss", loss)
+                print("current perplexity:", exp(cur_loss))
                 total_loss = 0
-                start_time = time.time()
 
-        torch.save(lstm, epoch)
+        save_model(lstm, epoch)
+        average_loss = evaluate(valid_data, lstm, loss_function)
+        validation_perplexity = exp(average_loss)
+
+        print("Validation perplexity", validation_perplexity, "Loss", average_loss)
+        save_perplexity(perplexity_filepath, validation_perplexity, epoch)
+
+        #     if batch % 200 == 0 and batch > 0:
+        #         cur_loss = total_loss[0] / 200
+        #         elapsed = time.time() - start_time
+        #         print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
+        #                 'loss {:5.2f} | ppl {:8.2f}'.format(
+        #                 epoch, batch, len(train_data) // SEQ_LENGTH, lr,
+        #                 elapsed * 1000 / 200, cur_loss, math.exp(cur_loss)))
+        #         total_loss = 0
+        #         start_time = time.time()
+        #
+        # torch.save(lstm, epoch)
 
 train()

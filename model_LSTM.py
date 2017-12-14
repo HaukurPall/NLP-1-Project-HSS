@@ -17,7 +17,7 @@ class LSTMModel(nn.Module):
         self.rnn = getattr(nn, 'LSTM')(embedding_dim, num_hidden, num_layers, dropout=dropout)
         self.decoder = nn.Linear(num_hidden, vocab_size)
 
-         if tie_weights:
+        if tie_weights:
             if num_hidden != embedding_dim:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
             self.decoder.weight = self.encoder.weight
