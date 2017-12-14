@@ -21,14 +21,14 @@ use_GPU = False
 #### Constants
 
 EPOCHS = 100
-BATCH_SIZE = 20
+BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
-CONTEXT_SIZE = 30
+CONTEXT_SIZE = 35
 WORD_EMBEDDINGS_DIMENSION = 100
 LEARNING_RATE = 1
-LOSS_CLIP = 30
+LOSS_CLIP = 15
 
-BATCH_LOG_INTERVAL = 50
+BATCH_LOG_INTERVAL = 100
 READ_LIMIT = inf
 
 pretrained_embeddings_filepath = "data/glove.6B.{}d.txt".format(WORD_EMBEDDINGS_DIMENSION)
@@ -108,13 +108,15 @@ def evaluate(data_source, ran, criterion):
     # Turn on evaluation mode which disables dropout.
     ran.eval()
     total_loss = 0
-    for i in range(0, data_source.size(0) - 1, EVAL_BATCH_SIZE):
-        hidden = ran.init_hidden(EVAL_BATCH_SIZE)
+    hidden = ran.init_hidden(EVAL_BATCH_SIZE)
+
+    for i in range(0, data_source.size(0) - 1, CONTEXT_SIZE):
         data, targets = get_batch(data_source, i, evaluation=True)
 
         output, hidden = ran(data, hidden)
         output_flat = output.view(-1, vocab_size)
         total_loss += len(data) * criterion(output_flat, targets).data
+        hidden = repackage_hidden(hidden)
 
     return total_loss[0] / len(data_source)
 
@@ -143,7 +145,8 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
     for epoch in range(epochs):
         # learning_rate *= 0.95 # Reduce learning rate each epoch
         if epoch > 6:
-          learning_rate /= 1.2
+          learning_rate *= 0.8
+          print("reduced learning rate to:", learning_rate)
 
         # turn on dropouts
         total_loss = 0
@@ -152,8 +155,8 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
         hidden = ran.init_hidden(BATCH_SIZE)
 
         for batch, i in enumerate(range(0, training_data.size(0) - 1, CONTEXT_SIZE)):
-            ran.zero_grad()
             hidden = repackage_hidden(hidden)
+            ran.zero_grad()
 
             data, targets = get_batch(training_data, i)
 
@@ -161,10 +164,10 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
 
             loss = criterion(output.view(-1, vocab_size), targets)
 
-            loss.backward(retain_graph=True) # Haukur: I set it to False, want to hear the reasoning why it was set. Stian: Don't understand why we need this argument
+            loss.backward() # Haukur: I set it to False, want to hear the reasoning why it was set. Stian: Don't understand why we need this argument
 
-            # # Clip gradients to avoid gradient explosion
-            # torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
+            # Clip gradients to avoid gradient explosion
+            torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
             for p in ran.parameters():
                 if p.requires_grad:
                     p.data.add_(-learning_rate, p.grad.data)
