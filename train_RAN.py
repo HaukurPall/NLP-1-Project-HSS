@@ -16,7 +16,7 @@ import time
 
 #### Options
 
-use_GPU = False
+use_GPU = True
 
 #### Constants
 
@@ -24,11 +24,12 @@ EPOCHS = 100
 BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
 CONTEXT_SIZE = 35
-WORD_EMBEDDINGS_DIMENSION = 100
-LEARNING_RATE = 1
-LOSS_CLIP = 15
+WORD_EMBEDDINGS_DIMENSION = 300
+LEARNING_RATE = 5
+MIN_LEARNING_RATE = 0.001
+LOSS_CLIP = 10
 
-IMPROVEMENT_EPSILON = 10
+IMPROVEMENT_EPSILON = 10 # Hoe much the perplexity must have improved over 30 epochs
 
 BATCH_LOG_INTERVAL = 100
 READ_LIMIT = inf
@@ -139,11 +140,18 @@ def has_improved(checkpoint_perplexities):
         # We don't want to reduce the learning rate if have not made 30 checkpoints yet
         return True
 
-    average = sum([perp for perp in checkpoint_perplexities[-30:]]) / 30
-    print("Improvement", checkpoint_perplexities[-1] - average)
-    if abs(checkpoint_perplexities[-1] - average) < IMPROVEMENT_EPSILON:
-        return False
-    return True
+    print("Checkpoint values", checkpoint_perplexities[-30],  checkpoint_perplexities[-1])
+
+    decreases = 0
+
+    for i in range(len(checkpoint_perplexities) - 30, len(checkpoint_perplexities)):
+        if checkpoint_perplexities[i] - checkpoint_perplexities[i-1] < 0: 
+            decreases += 1
+
+    print("decreases:", decreases)
+    return decreases >= 20
+
+    # return checkpoint_perplexities[-30] - checkpoint_perplexities[-1] > IMPROVEMENT_EPSILON
 
 def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings, use_GPU):
     criterion = nn.CrossEntropyLoss() if not use_GPU else nn.CrossEntropyLoss().cuda()
@@ -159,11 +167,6 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
     checkpoint_perplexities = []
 
     for epoch in range(epochs):
-        # learning_rate *= 0.95 # Reduce learning rate each epoch
-        if epoch > 6:
-          learning_rate *= 0.8
-          print("reduced learning rate to:", learning_rate)
-
         # turn on dropouts
         total_loss = 0
         ran.train()
@@ -180,18 +183,19 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
 
             loss = criterion(output.view(-1, vocab_size), targets)
 
-            loss.backward() # Haukur: I set it to False, want to hear the reasoning why it was set. Stian: Don't understand why we need this argument
+            loss.backward()
 
             checkpoint_counter += 1
             if checkpoint_counter == 100:
                 checkpoint_counter = 0
-                checkpoint_perplexities.add(evaluate(validation_data, ran, criterion))
+                checkpoint_perplexities.append(exp(evaluate(validation_data, ran, criterion)))
                 if not has_improved(checkpoint_perplexities):
-                    learning_rate *= 0.1
+                    learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
                     print("Reduced learning rate to", learning_rate)
 
             # Clip gradients to avoid gradient explosion
             torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)
+
             for p in ran.parameters():
                 if p.requires_grad:
                     p.data.add_(-learning_rate, p.grad.data)
@@ -199,18 +203,14 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
             total_loss += loss.data
 
             if batch % BATCH_LOG_INTERVAL == 0 and batch > 0:
-                print("Epoch: ", epoch)
-                print("batch", batch, "out of ", training_data.size(0) // BATCH_SIZE)
                 cur_loss = total_loss[0] / BATCH_LOG_INTERVAL
-                print("Loss", loss)
-                print("current perplexity:", exp(cur_loss))
                 total_loss = 0
 
         save_model(ran, epoch)
         average_loss = evaluate(validation_data, ran, criterion)
         validation_perplexity = exp(average_loss)
 
-        print("Validation perplexity", validation_perplexity, "Loss", average_loss)
+        print("\nValidation perplexity", validation_perplexity, "Epoch", epoch, "\n")
         save_perplexity(perplexity_filepath, validation_perplexity, epoch)
 
 train_RAN(training_data=training_data, \
