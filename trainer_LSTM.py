@@ -9,6 +9,7 @@ from data_reader import update_word_indexes_vocab, get_embeddings_matrix, conver
 from ngram_helper import extract_list_of_ngrams
 from math import inf, exp
 import time
+from collections import defaultdict
 from datetime import datetime
 from model_LSTM import LSTMModel
 
@@ -17,15 +18,15 @@ use_pretrained = True
 
 # Constants
 READ_LIMIT = inf # Manually reset if we want faster processing
-EMBEDDING_DIM = 50
-NUM_HIDDEN_UNITS = 50
+EMBEDDING_DIM = 100
+NUM_HIDDEN_UNITS = 100
 NUM_LAYERS = 1
 DROPOUT_PROB = 0.2
-BATCH_SIZE = 10
+BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
-SEQ_LENGTH = 30
+SEQ_LENGTH = 35
 NUM_EPOCHS = 100
-LEARNING_RATE = 0.01
+LEARNING_RATE = 1
 BATCH_LOG_INTERVAL = 100
 
 # File paths
@@ -66,12 +67,12 @@ def repackage_hidden(h):
     else:
         return tuple(repackage_hidden(v) for v in h)
 
-validation_data = DataReader(valid_data_path, read_limit=READ_LIMIT)
-validation_words = validation_data.get_words()
-valid_word_to_ix,  _ = validation_data.get_word_to_index_to_word()
-# validation_words_tensor =  convert_long_tensor(validation_words, valid_word_to_ix, validation_words)
-validation_words_tensor = torch.LongTensor([valid_word_to_ix[word] for word in validation_words])
-valid_data = batchify(validation_words_tensor, BATCH_SIZE)
+# validation_data = DataReader(valid_data_path, read_limit=READ_LIMIT)
+# validation_words = validation_data.get_words()
+# valid_word_to_ix,  _ = validation_data.get_word_to_index_to_word()
+# # validation_words_tensor =  convert_long_tensor(validation_words, valid_word_to_ix, validation_words)
+# validation_words_tensor = torch.LongTensor([valid_word_to_ix[word] for word in validation_words])
+# valid_data = batchify(validation_words_tensor, BATCH_SIZE)
 
 # Read corpus and compile the vocabulary
 training_data = DataReader(train_data_path, read_limit=READ_LIMIT)
@@ -100,6 +101,15 @@ words_tensor = torch.LongTensor([word_to_ix[word] for word in words])
 train_data = batchify(words_tensor, BATCH_SIZE)
 # print('train_data', train_data)
 
+# Validation data
+valid_word_to_ix = defaultdict(lambda: word_to_ix["unknown"], word_to_ix)
+
+validation_data = DataReader(valid_data_path, read_limit=READ_LIMIT)
+validation_words = validation_data.get_words()
+# now the training data is a one dimensional vector of indexes
+validation_words_tensor = torch.LongTensor([valid_word_to_ix[word] for word in validation_words])
+valid_data = batchify(validation_words_tensor, BATCH_SIZE)
+
 # Build RNN/LSTM model
 lstm = LSTMModel(vocab_size, EMBEDDING_DIM, NUM_HIDDEN_UNITS, NUM_LAYERS, DROPOUT_PROB, word_embeddings, use_pretrained, tie_weights=True)
 if use_GPU:
@@ -111,13 +121,13 @@ def evaluate(data_source, lstm, loss_function):
     # Turn on evaluation mode which disables dropout.
     lstm.eval()
     total_loss = 0
-    for i in range(0, data_source.size(0) - 1, EVAL_BATCH_SIZE):
-        hidden = lstm.init_hidden(EVAL_BATCH_SIZE)
+    hidden = lstm.init_hidden(EVAL_BATCH_SIZE)
+    for i in range(0, data_source.size(0) - 1, SEQ_LENGTH):
         data, targets = get_batch(data_source, i, evaluation=True)
-
         output, hidden = lstm(data, hidden)
         output_flat = output.view(-1, vocab_size)
         total_loss += len(data) * loss_function(output_flat, targets).data
+        hidden = repackage_hidden(hidden)
 
     return total_loss[0] / len(data_source)
 

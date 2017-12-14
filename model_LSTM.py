@@ -21,6 +21,7 @@ class LSTMModel(nn.Module):
             if num_hidden != embedding_dim:
                 raise ValueError('When using the tied flag, nhid must be equal to emsize')
             self.decoder.weight = self.encoder.weight
+            self.decoder.weight.requires_grad = True
 
         if not use_pretrained:
             self.init_weights()
