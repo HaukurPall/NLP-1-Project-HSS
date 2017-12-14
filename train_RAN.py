@@ -11,6 +11,7 @@ from ngram_helper import extract_list_of_ngrams
 
 from math import inf, exp
 from collections import defaultdict
+from datetime import datetime
 import time
 
 #### Options
@@ -33,6 +34,11 @@ READ_LIMIT = inf
 pretrained_embeddings_filepath = "data/glove.6B.50d.txt"
 training_data_filepath = "data/train.txt"
 validation_data_filepath = "data/valid.txt"
+
+timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
+
+perplexity_filepath = str(timestamp) + "_valid.txt"
+print(perplexity_filepath)
 
 def prepare_dictionaries(training_data):
     vocab = training_data.get_vocabulary()
@@ -61,11 +67,11 @@ training_data = torch.LongTensor([word_to_index[word] for word in training_words
 
 ###### Same operations for the validation dataset ######
 
+# When we have unseen words in the validation set we default to unknown
+word_to_index = defaultdict(lambda: word_to_index["unknown"], word_to_index)
+
 validation_data = DataReader(validation_data_filepath, read_limit=READ_LIMIT)
 
-# Unsure how to deal with the validation data
-validation_word_to_index, validation_index_to_word, validation_word_embeddings, \
-    validation_vocab_size = prepare_dictionaries(validation_data)
 validation_words = validation_data.get_words()
 # now the training data is a one dimensional vector of indexes
 validation_data = torch.LongTensor([word_to_index[word] for word in validation_words])
@@ -85,6 +91,7 @@ def batchify(data, batch_size):
     return data
 
 training_data = batchify(training_data, BATCH_SIZE)
+validation_data = batchify(validation_data, BATCH_SIZE)
 
 def save_model(model, epoch):
     torch.save(model.state_dict(), str(epoch) + "_saved_model_ran.pt")
@@ -106,16 +113,16 @@ def evaluate(data_source, ran, criterion):
         data, targets = get_batch(data_source, i, evaluation=True)
 
         output, hidden = ran(data, hidden)
-        output_flat = output.view(-1, validation_vocab_size)
+        output_flat = output.view(-1, vocab_size)
         total_loss += len(data) * criterion(output_flat, targets).data
 
     return total_loss[0] / len(data_source)
 
 def save_perplexity(filepath, perplexity, epoch):
     with open(filepath, "a") as f:
-        f.write(str(epoch) + " " + str(perplexity))
+        f.write(str(epoch) + " " + str(perplexity) + "\n")
 
-    return data, target
+    return True
 
 def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings, use_GPU):
     criterion = nn.CrossEntropyLoss() if not use_GPU else nn.CrossEntropyLoss().cuda()
@@ -165,8 +172,9 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
         save_model(ran, epoch)
         average_loss = evaluate(validation_data, ran, criterion)
         validation_perplexity = exp(average_loss)
+
         print("Validation perplexity", validation_perplexity, "Loss", average_loss)
-        save_perplexity("RAN_epoch_perplexities.txt", validation_perplexity, epoch)
+        save_perplexity(perplexity_filepath, validation_perplexity, epoch)
 
 train_RAN(training_data=training_data, \
           learning_rate=LEARNING_RATE, \
