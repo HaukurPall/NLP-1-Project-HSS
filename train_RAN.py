@@ -125,6 +125,12 @@ def save_perplexity(filepath, perplexity, epoch):
 
     return True
 
+def repackage_hidden(hidden):
+    if type(hidden) == Variable:
+        return Variable(hidden.data)
+    else:
+        return tuple(repackage_hidden(v) for v in hidden)
+
 def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings, use_GPU):
     criterion = nn.CrossEntropyLoss() if not use_GPU else nn.CrossEntropyLoss().cuda()
 
@@ -144,9 +150,11 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
         total_loss = 0
         ran.train()
 
+        hidden = ran.init_hidden(BATCH_SIZE)
+
         for batch, i in enumerate(range(0, training_data.size(0) - 1, CONTEXT_SIZE)):
             ran.zero_grad()
-            hidden = ran.init_hidden(BATCH_SIZE)
+            hidden = repackage_hidden(hidden)
 
             data, targets = get_batch(training_data, i)
 
