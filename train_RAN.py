@@ -25,19 +25,20 @@ BATCH_SIZE = 20
 EVAL_BATCH_SIZE = BATCH_SIZE
 CONTEXT_SIZE = 30
 WORD_EMBEDDINGS_DIMENSION = 50
-LEARNING_RATE = 0.01
+LEARNING_RATE = 1
 LOSS_CLIP = 30
 
 BATCH_LOG_INTERVAL = 50
 READ_LIMIT = inf
 
-pretrained_embeddings_filepath = "data/glove.6B.50d.txt"
+pretrained_embeddings_filepath = "data/glove.6B.{}d.txt".format(WORD_EMBEDDINGS_DIMENSION)
 training_data_filepath = "data/train.txt"
 validation_data_filepath = "data/valid.txt"
 
 timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
 
-perplexity_filepath = "{}_{}_batch_{:d}_embed_{}_learn_{}.txt".format("RAN", timestamp, BATCH_SIZE, WORD_EMBEDDINGS_DIMENSION, str(LEARNING_RATE)[:4])
+timestamp_signature = "{}_{}_batch_{:d}_embed_{}_learn_{}".format("RAN", timestamp, BATCH_SIZE, WORD_EMBEDDINGS_DIMENSION, str(LEARNING_RATE)[:4])
+perplexity_filepath = "perplexities/" + timestamp_signature + ".txt"
 print(perplexity_filepath)
 
 def prepare_dictionaries(training_data):
@@ -94,7 +95,7 @@ training_data = batchify(training_data, BATCH_SIZE)
 validation_data = batchify(validation_data, BATCH_SIZE)
 
 def save_model(model, epoch):
-    torch.save(model.state_dict(), str(epoch) + "_saved_model_ran.pt")
+    torch.save(model.state_dict(), "saved_models/" + timestamp_signature + str(epoch) + ".pt")
 
 def get_batch(source, i, evaluation=False):
     seq_len = min(CONTEXT_SIZE, len(source) - 1 - i)
@@ -137,7 +138,7 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
     for epoch in range(epochs):
         # learning_rate *= 0.95 # Reduce learning rate each epoch
         if epoch > 6:
-            LEARNING_RATE /= 1.2
+          learning_rate /= 1.2
 
         # turn on dropouts
         total_loss = 0
