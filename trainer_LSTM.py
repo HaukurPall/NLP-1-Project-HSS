@@ -12,7 +12,9 @@ from collections import defaultdict
 from datetime import datetime
 from model_LSTM import LSTMModel
 
-use_GPU = False
+use_GPU = True
+print("Using GPU" if use_GPU else "Running without GPU")
+
 use_pretrained = True
 
 # Constants
@@ -37,7 +39,6 @@ train_data_path = "data/train.txt"
 valid_data_path = "data/valid.txt"
 
 timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
-
 timestamp_signature = "{}_{}_batch_{:d}_embed_{}_learn_{}".format("LSTM", timestamp, BATCH_SIZE, EMBEDDING_DIM, str(LEARNING_RATE)[:4])
 perplexity_filepath = "perplexities/" + timestamp_signature + ".txt"
 
@@ -69,13 +70,6 @@ def repackage_hidden(h):
     else:
         return tuple(repackage_hidden(v) for v in h)
 
-# validation_data = DataReader(valid_data_path, read_limit=READ_LIMIT)
-# validation_words = validation_data.get_words()
-# valid_word_to_ix,  _ = validation_data.get_word_to_index_to_word()
-# # validation_words_tensor =  convert_long_tensor(validation_words, valid_word_to_ix, validation_words)
-# validation_words_tensor = torch.LongTensor([valid_word_to_ix[word] for word in validation_words])
-# valid_data = batchify(validation_words_tensor, BATCH_SIZE)
-
 # Read corpus and compile the vocabulary
 training_data = DataReader(train_data_path, read_limit=READ_LIMIT)
 vocab = training_data.get_vocabulary()
@@ -87,11 +81,7 @@ word_embeddings = None
 word_to_ix, _ = training_data.get_word_to_index_to_word()
 if use_pretrained:
     _, embed_dict = get_pretrained_word_indexes(embedding_path)
-    # word_to_ix, vocab = update_word_indexes_vocab(word_to_ix, vocab)
-    # vocab_size = len(vocab)
     word_embeddings = get_embeddings_matrix(word_to_ix, embed_dict, EMBEDDING_DIM)
-# else:
-#     word_to_ix = training_data.get_word_indexes()
 
 words_tensor = torch.LongTensor([word_to_ix[word] for word in words])
 train_data = batchify(words_tensor, BATCH_SIZE)
@@ -158,8 +148,6 @@ def train():
     learning_rate = LEARNING_RATE
     for epoch in range(1, NUM_EPOCHS +1):
         # Turn on training mode which enables dropout.
-        if epoch > 6:
-          learning_rate *= 0.98
         lstm.train()
         total_loss = 0
 
@@ -181,7 +169,7 @@ def train():
                 checkpoint_counter = 0
                 checkpoint_perplexities.append(exp(evaluate(valid_data, lstm, loss_function)))
                 if not has_improved(checkpoint_perplexities):
-                    learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
+                    learning_rate = max(learning_rate*0.75, MIN_LEARNING_RATE)
                     print("Reduced learning rate to", learning_rate)
 
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.

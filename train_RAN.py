@@ -17,6 +17,7 @@ import time
 #### Options
 
 use_GPU = True
+print("Using GPU" if use_GPU else "Running without GPU")
 
 #### Constants
 
