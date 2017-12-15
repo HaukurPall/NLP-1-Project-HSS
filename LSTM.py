@@ -17,12 +17,12 @@ class LSTM(nn.Module):
         self.input_size = vocab_size
         self.hidden_size = word_embeddings_dimension
         self.num_layers = num_layers
-        
+
         self.drop = nn.Dropout(dropout_prob)
         self.encoder = nn.Embedding(self.input_size, self.hidden_size)
 
         if use_pretrained:
-            self.encoder.weight.data.copy_(torch.from_numpy(word_embeddings))
+            self.encoder.weight.data.copy_(word_embeddings)
 
         self.encoder.weight.requires_grad = False # Do not train the embeddings
 

@@ -23,6 +23,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--model', type=str)
 parser.add_argument('--cuda', action='store_true')
 parser.add_argument('--use_pretrained', action='store_true')
+parser.add_argument('--emb', type=int, default=300)
 
 args = parser.parse_args()
 
@@ -39,7 +40,7 @@ EPOCHS = 100
 BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
 CONTEXT_SIZE = 35
-WORD_EMBEDDINGS_DIMENSION = 300
+WORD_EMBEDDINGS_DIMENSION = args.emb
 LEARNING_RATE = 5
 MIN_LEARNING_RATE = 0.001
 LOSS_CLIP = 10
