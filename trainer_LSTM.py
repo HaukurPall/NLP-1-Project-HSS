@@ -25,8 +25,11 @@ BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
 SEQ_LENGTH = 35
 NUM_EPOCHS = 100
-LEARNING_RATE = 1
+# LEARNING_RATE = 1
+LEARNING_RATE = 5
+MIN_LEARNING_RATE = 0.001
 BATCH_LOG_INTERVAL = 100
+LOSS_CLIP = 10
 
 # File paths
 embedding_path = "data/glove.6B.{}d.txt".format(EMBEDDING_DIM)
@@ -131,7 +134,26 @@ def save_perplexity(filepath, perplexity, epoch):
 def save_model(model, epoch):
     torch.save(model.state_dict(), "saved_models/" + timestamp_signature + str(epoch) + ".pt")
 
+def has_improved(checkpoint_perplexities):
+    if len(checkpoint_perplexities) < 30:
+        # We don't want to reduce the learning rate if have not made 30 checkpoints yet
+        return True
+
+    print("Checkpoint values", checkpoint_perplexities[-30],  checkpoint_perplexities[-1])
+
+    decreases = 0
+
+    for i in range(len(checkpoint_perplexities) - 30, len(checkpoint_perplexities)):
+        if checkpoint_perplexities[i] - checkpoint_perplexities[i-1] < 0:
+            decreases += 1
+
+    print("decreases:", decreases)
+    return decreases >= 20
+
 def train():
+
+    checkpoint_counter = 0
+    checkpoint_perplexities = []
 
     learning_rate = LEARNING_RATE
     for epoch in range(1, NUM_EPOCHS +1):
@@ -154,8 +176,19 @@ def train():
             loss = loss_function(output.view(-1, vocab_size), targets)
             loss.backward()
 
+            checkpoint_counter += 1
+            if checkpoint_counter == 100:
+                checkpoint_counter = 0
+                checkpoint_perplexities.append(exp(evaluate(valid_data, lstm, loss_function)))
+                if not has_improved(checkpoint_perplexities):
+                    learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
+                    print("Reduced learning rate to", learning_rate)
+
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
             # torch.nn.utils.clip_grad_norm(model.parameters(), 0.25)
+
+            # Clip gradients to avoid gradient explosion
+            torch.nn.utils.clip_grad_norm(lstm.parameters(), LOSS_CLIP)
             for p in lstm.parameters():
                 if p.requires_grad:
                     p.data.add_(-learning_rate, p.grad.data)
