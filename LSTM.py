@@ -26,8 +26,8 @@ class LSTM(nn.Module):
 
         self.encoder.weight.requires_grad = False # Do not train the embeddings
 
-        self.rnn = getattr(nn, 'LSTM')(self.num_hidden, \
-                                       self.num_hidden, \
+        self.rnn = getattr(nn, 'LSTM')(self.hidden_size, \
+                                       self.hidden_size, \
                                        num_layers, \
                                        dropout=dropout)
         self.decoder = nn.Linear(self.hidden_size, self.input_size, bias=False)
@@ -36,7 +36,7 @@ class LSTM(nn.Module):
         self.decoder.weight.requires_grad = True
 
         # if tie_weights:
-        #     if num_hidden != embedding_dim:
+        #     if hidden_size != word_embeddings_dimension:
         #         raise ValueError('When using the tied flag, nhid must be equal to emsize')
         #     self.decoder.weight = self.encoder.weight
         #     self.decoder.weight.requires_grad = True
