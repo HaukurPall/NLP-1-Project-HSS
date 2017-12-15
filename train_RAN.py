@@ -136,22 +136,24 @@ def repackage_hidden(hidden):
     else:
         return tuple(repackage_hidden(v) for v in hidden)
 
-def has_improved(checkpoint_perplexities):
+def has_improved(checkpoint_perplexities, prev_best):
     if len(checkpoint_perplexities) < 30:
         # We don't want to reduce the learning rate if have not made 30 checkpoints yet
         return True
 
     print("Checkpoint values", checkpoint_perplexities[-30],  checkpoint_perplexities[-1])
 
-    decreases = 0
+    improved = False
 
-    for i in range(len(checkpoint_perplexities) - 30, len(checkpoint_perplexities)):
-        if checkpoint_perplexities[i] - checkpoint_perplexities[i-1] < 0: 
-            decreases += 1
+    best = inf
+    for perp in checkpoint_perplexities[-30:]:
+        if perp < best:
+            best = perp
 
-    print("decreases:", decreases)
-    return decreases >= 20
+    if best < prev_best:
+        improved = True
 
+    return improved, best
     # return checkpoint_perplexities[-30] - checkpoint_perplexities[-1] > IMPROVEMENT_EPSILON
 
 def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings, use_GPU):
@@ -166,6 +168,7 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
 
     checkpoint_counter = 0
     checkpoint_perplexities = []
+    best_prev = inf
 
     for epoch in range(epochs):
         # turn on dropouts
@@ -187,10 +190,13 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
             loss.backward()
 
             checkpoint_counter += 1
-            if checkpoint_counter == 100:
-                checkpoint_counter = 0
+            if checkpoint_counter % 100 == 0:
+
                 checkpoint_perplexities.append(exp(evaluate(validation_data, ran, criterion)))
-                if not has_improved(checkpoint_perplexities):
+
+                improved, best_prev = has_improved(checkpoint_perplexities, best_prev)
+
+                if not improved:
                     learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
                     print("Reduced learning rate to", learning_rate)
 
