@@ -30,7 +30,7 @@ class LSTM(nn.Module):
                                        self.hidden_size, \
                                        num_layers, \
                                        dropout=dropout_prob)
-        self.decoder = nn.Linear(self.hidden_size, self.input_size, bias=False)
+        self.decoder = nn.Linear(self.hidden_size, self.input_size, bias=True)
         self.decoder.weight = self.encoder.weight
         # do not train the
         self.decoder.weight.requires_grad = True
