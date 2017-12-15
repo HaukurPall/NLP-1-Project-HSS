@@ -139,7 +139,7 @@ def repackage_hidden(hidden):
 def has_improved(checkpoint_perplexities, prev_best):
     if len(checkpoint_perplexities) < 30:
         # We don't want to reduce the learning rate if have not made 30 checkpoints yet
-        return True
+        return True, prev_best
 
     print("Checkpoint values", checkpoint_perplexities[-30],  checkpoint_perplexities[-1])
 
@@ -153,6 +153,9 @@ def has_improved(checkpoint_perplexities, prev_best):
     if best < prev_best:
         improved = True
 
+    if not improved:
+        print(checkpoint_perplexities[-30:])
+        print("Did not improve. Values were: ", best, prev_best)
     return improved, best
     # return checkpoint_perplexities[-30] - checkpoint_perplexities[-1] > IMPROVEMENT_EPSILON
 
@@ -194,11 +197,12 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
 
                 checkpoint_perplexities.append(exp(evaluate(validation_data, ran, criterion)))
 
-                improved, best_prev = has_improved(checkpoint_perplexities, best_prev)
+                if checkpoint_counter % 3000 == 0:
 
-                if not improved:
-                    learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
-                    print("Reduced learning rate to", learning_rate)
+                        improved, best_prev = has_improved(checkpoint_perplexities, best_prev)
+                        if not improved:
+                        learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
+                        print("Reduced learning rate to", learning_rate)
 
             # Clip gradients to avoid gradient explosion
             torch.nn.utils.clip_grad_norm(ran.parameters(), LOSS_CLIP)

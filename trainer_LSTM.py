@@ -19,10 +19,10 @@ use_pretrained = True
 
 # Constants
 READ_LIMIT = inf # Manually reset if we want faster processing
-EMBEDDING_DIM = 50
+EMBEDDING_DIM = 300
 NUM_HIDDEN_UNITS = EMBEDDING_DIM
 NUM_LAYERS = 1
-DROPOUT_PROB = 0.2
+DROPOUT_PROB = 0.5
 BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
 SEQ_LENGTH = 35
@@ -169,7 +169,7 @@ def train():
                 checkpoint_counter = 0
                 checkpoint_perplexities.append(exp(evaluate(valid_data, lstm, loss_function)))
                 if not has_improved(checkpoint_perplexities):
-                    learning_rate = max(learning_rate*0.75, MIN_LEARNING_RATE)
+                    learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
                     print("Reduced learning rate to", learning_rate)
 
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
