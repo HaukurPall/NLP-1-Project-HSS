@@ -11,7 +11,7 @@ def create_filepaths(model, batch_size, emb_dim, lr):
                                                                       emb_dim, \
                                                                       str(lr)[:4])
     perplexity_filepath = "perplexities/first_offical_run_" + timestamp_signature + ".txt"
-    model_filepath = "saved_models/{}_{}.pt".format(model, timestamp_signature + str(epoch))
+    model_filepath = "saved_models/{}_{}.pt".format(model, timestamp_signature)
     return perplexity_filepath, model_filepath
 
 
