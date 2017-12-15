@@ -38,6 +38,7 @@ READ_LIMIT = inf
 pretrained_embeddings_filepath = "data/glove.6B.{}d.txt".format(WORD_EMBEDDINGS_DIMENSION)
 training_data_filepath = "data/train.txt"
 validation_data_filepath = "data/valid.txt"
+test_data_filepath = "data/test.txt"
 
 timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
 
@@ -69,16 +70,19 @@ training_words = training_data.get_words()
 # now the training data is a one dimensional vector of indexes
 training_data = torch.LongTensor([word_to_index[word] for word in training_words])
 
-###### Same operations for the validation dataset ######
+###### Same operations for the validation and test dataset ######
 
 # When we have unseen words in the validation set we default to unknown
 word_to_index = defaultdict(lambda: word_to_index["unknown"], word_to_index)
 
 validation_data = DataReader(validation_data_filepath, read_limit=READ_LIMIT)
+test_data = DataReader(test_data_filepath, read_limit=READ_LIMIT)
 
 validation_words = validation_data.get_words()
+test_words = validation_data.get_words()
 # now the training data is a one dimensional vector of indexes
 validation_data = torch.LongTensor([word_to_index[word] for word in validation_words])
+test_data = torch.LongTensor([word_to_index[word] for word in validation_words])
 
 print("### Done reading data ###")
 
@@ -223,6 +227,8 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
 
         print("\nValidation perplexity", validation_perplexity, "Epoch", epoch, "\n")
         save_perplexity(perplexity_filepath, validation_perplexity, epoch)
+
+    test_perplexity = evaluate(test_data, ran, criterion)
 
 train_RAN(training_data=training_data, \
           learning_rate=LEARNING_RATE, \
