@@ -25,7 +25,7 @@ EPOCHS = 100
 BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
 CONTEXT_SIZE = 35
-WORD_EMBEDDINGS_DIMENSION = 50
+WORD_EMBEDDINGS_DIMENSION = 300
 LEARNING_RATE = 5
 MIN_LEARNING_RATE = 0.001
 LOSS_CLIP = 10
@@ -100,6 +100,7 @@ def batchify(data, batch_size):
 
 training_data = batchify(training_data, BATCH_SIZE)
 validation_data = batchify(validation_data, BATCH_SIZE)
+test_data = batchify(test_data, BATCH_SIZE)
 
 def save_model(model, epoch):
     torch.save(model.state_dict(), "saved_models/" + timestamp_signature + str(epoch) + ".pt")
@@ -126,6 +127,8 @@ def evaluate(data_source, ran, criterion):
         total_loss += len(data) * criterion(output_flat, targets).data
         hidden = repackage_hidden(hidden)
 
+    ran.train()
+
     return total_loss[0] / len(data_source)
 
 def save_perplexity(filepath, perplexity, optimization_steps):
@@ -145,8 +148,6 @@ def has_improved(checkpoint_perplexities, prev_best):
         # We don't want to reduce the learning rate if have not made 30 checkpoints yet
         return True, prev_best
 
-    print("Checkpoint values", checkpoint_perplexities[-30],  checkpoint_perplexities[-1])
-
     improved = False
 
     best = inf
@@ -157,9 +158,6 @@ def has_improved(checkpoint_perplexities, prev_best):
     if best < prev_best:
         improved = True
 
-    if not improved:
-        print(checkpoint_perplexities[-30:])
-        print("Did not improve. Values were: ", best, prev_best)
     return improved, best
     # return checkpoint_perplexities[-30] - checkpoint_perplexities[-1] > IMPROVEMENT_EPSILON
 
@@ -226,9 +224,13 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
         validation_perplexity = exp(average_loss)
 
         print("\nValidation perplexity", validation_perplexity, "Epoch", epoch, "\n")
-        save_perplexity(perplexity_filepath, validation_perplexity, epoch)
+        save_perplexity(perplexity_filepath, validation_perplexity, optimization_steps)
 
-    test_perplexity = evaluate(test_data, ran, criterion)
+    test_loss = evaluate(test_data, ran, criterion)
+    test_perplexity = exp(test_loss)
+    print("############## FINAL TEST PERPLEXITY ################")
+    print(test_perplexity)
+    save_perplexity(perplexity_filepath, test_perplexity, "FINAL")
 
 train_RAN(training_data=training_data, \
           learning_rate=LEARNING_RATE, \
