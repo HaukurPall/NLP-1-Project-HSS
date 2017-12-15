@@ -183,7 +183,7 @@ def main(model, \
                         print("Reduced learning rate to", learning_rate)
 
             # Clip gradients to avoid gradient explosion
-            # torch.nn.utils.clip_grad_norm(model.parameters(), LOSS_CLIP)
+            torch.nn.utils.clip_grad_norm(model.parameters(), LOSS_CLIP)
 
             for p in model.parameters():
                 if p.requires_grad:
