@@ -51,7 +51,7 @@ training_data_filepath = "data/train.txt"
 validation_data_filepath = "data/valid.txt"
 test_data_filepath = "data/test.txt"
 
-perplexity_filepath = utilities.create_perp_filepath(model=model, \
+perplexity_filepath, model_filepath = utilities.create_perp_filepath(model=model, \
                                                      batch_size=LEARNING_RATE, \
                                                      emb_dim=WORD_EMBEDDINGS_DIMENSION, \
                                                      lr=LEARNING_RATE)
@@ -83,8 +83,8 @@ training_data = utilities.batchify(training_data, BATCH_SIZE, use_GPU=use_GPU)
 validation_data = utilities.batchify(validation_data, BATCH_SIZE, use_GPU=use_GPU)
 test_data = utilities.batchify(test_data, BATCH_SIZE, use_GPU=use_GPU)
 
-def save_model(model, epoch):
-    torch.save(model.state_dict(), "saved_models/" + timestamp_signature + str(epoch) + ".pt")
+def save_model(model, epoch, model_filepath):
+    torch.save(model.state_dict(), model_filepath)
 
 def evaluate(data_source, model, criterion, use_GPU):
     # Turn on evaluation mode which disables dropout.
@@ -195,7 +195,7 @@ def main(model, \
                 cur_loss = total_loss[0] / BATCH_LOG_INTERVAL
                 total_loss = 0
 
-        save_model(model, epoch)
+        save_model(model, epoch, model_filepath)
         average_loss = evaluate(validation_data, model, criterion, use_GPU)
         validation_perplexity = exp(average_loss)
 

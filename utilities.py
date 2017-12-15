@@ -3,7 +3,7 @@ from torch.autograd import Variable
 from datetime import datetime
 from data_reader import update_word_indexes_vocab, get_embeddings_matrix, get_pretrained_word_indexes
 
-def create_perp_filepath(model, batch_size, emb_dim, lr):
+def create_filepaths(model, batch_size, emb_dim, lr):
     timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
     timestamp_signature = "{}_{}_batch_{:d}_embed_{}_learn_{}".format(model, \
                                                                       timestamp, \
@@ -11,7 +11,9 @@ def create_perp_filepath(model, batch_size, emb_dim, lr):
                                                                       emb_dim, \
                                                                       str(lr)[:4])
     perplexity_filepath = "perplexities/first_offical_run_" + timestamp_signature + ".txt"
-    return perplexity_filepath
+    model_filepath = "saved_models/{}_{}.pt".format(model, timestamp_signature + str(epoch))
+    return perplexity_filepath, model_filepath
+
 
 def prepare_dictionaries(training_data, emb_dim, use_pretrained=True):
     vocab = training_data.get_vocabulary()
