@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-class LSTMModel(nn.Module):
+class LSTM(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
     def __init__(self, vocab_size, embedding_dim, num_hidden, num_layers, dropout=0.5, word_embeddings=None, use_pretrained=False, tie_weights=False):
-        super(LSTMModel, self).__init__()
+        super(LSTM, self).__init__()
         self.drop = nn.Dropout(dropout)
         if use_pretrained:
             self.encoder = nn.Embedding(vocab_size, embedding_dim)
