@@ -33,22 +33,23 @@ class RAN(nn.Module):
         # do not train the
         self.decoder.weight.requires_grad = True
 
-        self.w_ic = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
-        self.w_ix = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
-        self.w_fc = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
-        self.w_fx = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
-
-        self.b_i = nn.Parameter(torch.Tensor(self.hidden_size))
-        self.b_f = nn.Parameter(torch.Tensor(self.hidden_size))
-
         if use_GPU:
-            self.w_ic = self.w_ic.cuda()
-            self.w_ix = self.w_ix.cuda()
-            self.w_fc = self.w_fc.cuda()
-            self.w_fx = self.w_fx.cuda()
+            self.w_ic = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size).cuda())
+            self.w_ix = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size).cuda())
+            self.w_fc = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size).cuda())
+            self.w_fx = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size).cuda())
 
-            self.b_i = self.b_i.cuda()
-            self.b_f = self.b_f.cuda()
+            self.b_i = nn.Parameter(torch.Tensor(self.hidden_size).cuda())
+            self.b_f = nn.Parameter(torch.Tensor(self.hidden_size).cuda())
+
+        else:
+            self.w_ic = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
+            self.w_ix = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
+            self.w_fc = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
+            self.w_fx = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size))
+
+            self.b_i = nn.Parameter(torch.Tensor(self.hidden_size))
+            self.b_f = nn.Parameter(torch.Tensor(self.hidden_size))
 
         self.weights = self.w_ic, self.w_ix, self.w_fc, self.w_fx
         for w in self.weights:
