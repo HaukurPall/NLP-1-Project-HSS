@@ -14,13 +14,22 @@ from math import inf, exp
 from collections import defaultdict
 import time
 import sys
+import argparse
 
 #### Options
 
-use_GPU = False
-use_pretrained = True
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--model', type=str)
+parser.add_argument('--cuda', action='store_true')
+parser.add_argument('--use_pretrained', action='store_true')
+
+args = parser.parse_args()
+
+use_GPU = args.cuda
+use_pretrained = args.use_pretrained
 print("Using GPU" if use_GPU else "Running without GPU")
-model = sys.argv[1]
+model = args.model
 
 #### Constants
 BATCH_LOG_INTERVAL = 100
@@ -155,9 +164,6 @@ def main(model, \
 
             data, targets = utilities.get_batch(training_data, CONTEXT_SIZE, i, use_GPU)
 
-            print(data.size())
-            print(targets.size())
-            print(hidden.size())
             output, hidden = model(data, hidden)
 
             loss = criterion(output.view(-1, vocab_size), targets)
