@@ -27,7 +27,6 @@ BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
 SEQ_LENGTH = 35
 NUM_EPOCHS = 100
-# LEARNING_RATE = 1
 LEARNING_RATE = 5
 MIN_LEARNING_RATE = 0.001
 BATCH_LOG_INTERVAL = 100
@@ -37,10 +36,11 @@ LOSS_CLIP = 10
 embedding_path = "data/glove.6B.{}d.txt".format(EMBEDDING_DIM)
 train_data_path = "data/train.txt"
 valid_data_path = "data/valid.txt"
+test_data_path = "data/test.txt"
 
 timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
 timestamp_signature = "{}_{}_batch_{:d}_embed_{}_learn_{}".format("LSTM", timestamp, BATCH_SIZE, EMBEDDING_DIM, str(LEARNING_RATE)[:4])
-perplexity_filepath = "perplexities/" + timestamp_signature + ".txt"
+perplexity_filepath = "perplexities/first_official_run_" + timestamp_signature + ".txt"
 
 torch.manual_seed(1111)
 if use_GPU:
@@ -93,7 +93,13 @@ validation_data = DataReader(valid_data_path, read_limit=READ_LIMIT)
 validation_words = validation_data.get_words()
 # now the training data is a one dimensional vector of indexes
 validation_words_tensor = torch.LongTensor([valid_word_to_ix[word] for word in validation_words])
-valid_data = batchify(validation_words_tensor, BATCH_SIZE)
+validation_data = batchify(validation_words_tensor, BATCH_SIZE)
+
+test_data = DataReader(test_data_path, read_limit=READ_LIMIT)
+test_words = test_data.get_words()
+# now the training data is a one dimensional vector of indexes
+test_words_tensor = torch.LongTensor([test_word_to_ix[word] for word in test_words])
+test_data = batchify(test_words_tensor, BATCH_SIZE)
 
 # Build RNN/LSTM model
 lstm = LSTMModel(vocab_size, EMBEDDING_DIM, NUM_HIDDEN_UNITS, NUM_LAYERS, DROPOUT_PROB, word_embeddings, use_pretrained, tie_weights=True)
@@ -114,6 +120,7 @@ def evaluate(data_source, lstm, loss_function):
         total_loss += len(data) * loss_function(output_flat, targets).data
         hidden = repackage_hidden(hidden)
 
+    lstm.train()
     return total_loss[0] / len(data_source)
 
 def save_perplexity(filepath, perplexity, epoch):
@@ -124,26 +131,28 @@ def save_perplexity(filepath, perplexity, epoch):
 def save_model(model, epoch):
     torch.save(model.state_dict(), "saved_models/" + timestamp_signature + str(epoch) + ".pt")
 
-def has_improved(checkpoint_perplexities):
+def has_improved(checkpoint_perplexities, prev_best):
     if len(checkpoint_perplexities) < 30:
         # We don't want to reduce the learning rate if have not made 30 checkpoints yet
-        return True
+        return True, prev_best
 
-    print("Checkpoint values", checkpoint_perplexities[-30],  checkpoint_perplexities[-1])
+    improved = False
 
-    decreases = 0
+    best = inf
+    for perp in checkpoint_perplexities[-30:]:
+        if perp < best:
+            best = perp
 
-    for i in range(len(checkpoint_perplexities) - 30, len(checkpoint_perplexities)):
-        if checkpoint_perplexities[i] - checkpoint_perplexities[i-1] < 0:
-            decreases += 1
+    if best < prev_best:
+        improved = True
 
-    print("decreases:", decreases)
-    return decreases >= 20
+    return improved, best
 
 def train():
 
-    checkpoint_counter = 0
+    optimization_steps = 0
     checkpoint_perplexities = []
+    best_prev = inf
 
     learning_rate = LEARNING_RATE
     for epoch in range(1, NUM_EPOCHS +1):
@@ -164,13 +173,17 @@ def train():
             loss = loss_function(output.view(-1, vocab_size), targets)
             loss.backward()
 
-            checkpoint_counter += 1
-            if checkpoint_counter == 100:
-                checkpoint_counter = 0
-                checkpoint_perplexities.append(exp(evaluate(valid_data, lstm, loss_function)))
-                if not has_improved(checkpoint_perplexities):
-                    learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
-                    print("Reduced learning rate to", learning_rate)
+            optimization_steps += 1
+            if optimization_steps % 100 == 0:
+
+                checkpoint_perplexities.append(exp(evaluate(validation_data, lstm, loss_function)))
+
+                if optimization_steps % 3000 == 0:
+
+                    improved, best_prev = has_improved(checkpoint_perplexities, best_prev)
+                    if not improved:
+                        learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
+                        print("Reduced learning rate to", learning_rate)
 
             # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
             # torch.nn.utils.clip_grad_norm(model.parameters(), 0.25)
@@ -188,12 +201,18 @@ def train():
                 total_loss = 0
 
         save_model(lstm, epoch)
-        average_loss = evaluate(valid_data, lstm, loss_function)
+        average_loss = evaluate(validation_data, lstm, loss_function)
         validation_perplexity = exp(average_loss)
 
         print("\nEpoch", epoch, "Validation perplexity", \
                 validation_perplexity, "learning_rate:", learning_rate, "\n")
 
-        save_perplexity(perplexity_filepath, validation_perplexity, epoch)
+        save_perplexity(perplexity_filepath, validation_perplexity, optimization_steps)
+
+    test_loss = evaluate(test_data, lstm, loss_function)
+    test_perplexity = exp(test_loss)
+    print("############## FINAL TEST PERPLEXITY ################")
+    print(test_perplexity)
+    save_perplexity(perplexity_filepath, test_perplexity, "FINAL")
 
 train()

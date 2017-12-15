@@ -25,7 +25,7 @@ EPOCHS = 100
 BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
 CONTEXT_SIZE = 35
-WORD_EMBEDDINGS_DIMENSION = 50
+WORD_EMBEDDINGS_DIMENSION = 300
 LEARNING_RATE = 5
 MIN_LEARNING_RATE = 0.001
 LOSS_CLIP = 10
@@ -38,11 +38,12 @@ READ_LIMIT = inf
 pretrained_embeddings_filepath = "data/glove.6B.{}d.txt".format(WORD_EMBEDDINGS_DIMENSION)
 training_data_filepath = "data/train.txt"
 validation_data_filepath = "data/valid.txt"
+test_data_filepath = "data/test.txt"
 
 timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
 
 timestamp_signature = "{}_{}_batch_{:d}_embed_{}_learn_{}".format("RAN", timestamp, BATCH_SIZE, WORD_EMBEDDINGS_DIMENSION, str(LEARNING_RATE)[:4])
-perplexity_filepath = "perplexities/" + timestamp_signature + ".txt"
+perplexity_filepath = "perplexities/first_offical_run_" + timestamp_signature + ".txt"
 
 def prepare_dictionaries(training_data):
     vocab = training_data.get_vocabulary()
@@ -69,16 +70,19 @@ training_words = training_data.get_words()
 # now the training data is a one dimensional vector of indexes
 training_data = torch.LongTensor([word_to_index[word] for word in training_words])
 
-###### Same operations for the validation dataset ######
+###### Same operations for the validation and test dataset ######
 
 # When we have unseen words in the validation set we default to unknown
 word_to_index = defaultdict(lambda: word_to_index["unknown"], word_to_index)
 
 validation_data = DataReader(validation_data_filepath, read_limit=READ_LIMIT)
+test_data = DataReader(test_data_filepath, read_limit=READ_LIMIT)
 
 validation_words = validation_data.get_words()
+test_words = validation_data.get_words()
 # now the training data is a one dimensional vector of indexes
 validation_data = torch.LongTensor([word_to_index[word] for word in validation_words])
+test_data = torch.LongTensor([word_to_index[word] for word in validation_words])
 
 print("### Done reading data ###")
 
@@ -96,6 +100,7 @@ def batchify(data, batch_size):
 
 training_data = batchify(training_data, BATCH_SIZE)
 validation_data = batchify(validation_data, BATCH_SIZE)
+test_data = batchify(test_data, BATCH_SIZE)
 
 def save_model(model, epoch):
     torch.save(model.state_dict(), "saved_models/" + timestamp_signature + str(epoch) + ".pt")
@@ -122,6 +127,8 @@ def evaluate(data_source, ran, criterion):
         total_loss += len(data) * criterion(output_flat, targets).data
         hidden = repackage_hidden(hidden)
 
+    ran.train()
+
     return total_loss[0] / len(data_source)
 
 def save_perplexity(filepath, perplexity, optimization_steps):
@@ -141,8 +148,6 @@ def has_improved(checkpoint_perplexities, prev_best):
         # We don't want to reduce the learning rate if have not made 30 checkpoints yet
         return True, prev_best
 
-    print("Checkpoint values", checkpoint_perplexities[-30],  checkpoint_perplexities[-1])
-
     improved = False
 
     best = inf
@@ -153,9 +158,6 @@ def has_improved(checkpoint_perplexities, prev_best):
     if best < prev_best:
         improved = True
 
-    if not improved:
-        print(checkpoint_perplexities[-30:])
-        print("Did not improve. Values were: ", best, prev_best)
     return improved, best
     # return checkpoint_perplexities[-30] - checkpoint_perplexities[-1] > IMPROVEMENT_EPSILON
 
@@ -222,7 +224,13 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
         validation_perplexity = exp(average_loss)
 
         print("\nValidation perplexity", validation_perplexity, "Epoch", epoch, "\n")
-        save_perplexity(perplexity_filepath, validation_perplexity, epoch)
+        save_perplexity(perplexity_filepath, validation_perplexity, optimization_steps)
+
+    test_loss = evaluate(test_data, ran, criterion)
+    test_perplexity = exp(test_loss)
+    print("############## FINAL TEST PERPLEXITY ################")
+    print(test_perplexity)
+    save_perplexity(perplexity_filepath, test_perplexity, "FINAL")
 
 train_RAN(training_data=training_data, \
           learning_rate=LEARNING_RATE, \
