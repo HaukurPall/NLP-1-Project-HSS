@@ -28,7 +28,7 @@ class RAN(nn.Module):
 
         self.encoder.weight.requires_grad = False # Do not train the embeddings
 
-        self.decoder = nn.Linear(self.hidden_size, self.input_size, bias=False)
+        self.decoder = nn.Linear(self.hidden_size, self.input_size, bias=True)
         self.decoder.weight = self.encoder.weight
         # do not train the
         self.decoder.weight.requires_grad = True
@@ -54,6 +54,11 @@ class RAN(nn.Module):
         self.weights = self.w_ic, self.w_ix, self.w_fc, self.w_fx
         for w in self.weights:
             init.xavier_uniform(w)
+
+        if not use_pretrained:
+            initrange = 0.1
+            self.encoder.weight.data.uniform_(-initrange, initrange)
+            self.decoder.weight.data.uniform_(-initrange, initrange)
 
         self.biases = self.b_i, self.b_f
         for b in self.biases:
