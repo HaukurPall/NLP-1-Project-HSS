@@ -43,7 +43,7 @@ test_data_filepath = "data/test.txt"
 timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
 
 timestamp_signature = "{}_{}_batch_{:d}_embed_{}_learn_{}".format("RAN", timestamp, BATCH_SIZE, WORD_EMBEDDINGS_DIMENSION, str(LEARNING_RATE)[:4])
-perplexity_filepath = "perplexities/" + timestamp_signature + ".txt"
+perplexity_filepath = "perplexities/first_offical_run_" + timestamp_signature + ".txt"
 
 def prepare_dictionaries(training_data):
     vocab = training_data.get_vocabulary()

@@ -36,10 +36,11 @@ LOSS_CLIP = 10
 embedding_path = "data/glove.6B.{}d.txt".format(EMBEDDING_DIM)
 train_data_path = "data/train.txt"
 valid_data_path = "data/valid.txt"
+test_data_path = "data/test.txt"
 
 timestamp = str(datetime.now()).split()[1][:8].replace(":", "_")
 timestamp_signature = "{}_{}_batch_{:d}_embed_{}_learn_{}".format("LSTM", timestamp, BATCH_SIZE, EMBEDDING_DIM, str(LEARNING_RATE)[:4])
-perplexity_filepath = "perplexities/" + timestamp_signature + ".txt"
+perplexity_filepath = "perplexities/first_official_run_" + timestamp_signature + ".txt"
 
 torch.manual_seed(1111)
 if use_GPU:
@@ -94,10 +95,10 @@ validation_words = validation_data.get_words()
 validation_words_tensor = torch.LongTensor([valid_word_to_ix[word] for word in validation_words])
 validation_data = batchify(validation_words_tensor, BATCH_SIZE)
 
-test_data = DataReader(valid_data_path, read_limit=READ_LIMIT)
+test_data = DataReader(test_data_path, read_limit=READ_LIMIT)
 test_words = test_data.get_words()
 # now the training data is a one dimensional vector of indexes
-test_words_tensor = torch.LongTensor([valid_word_to_ix[word] for word in test_words])
+test_words_tensor = torch.LongTensor([test_word_to_ix[word] for word in test_words])
 test_data = batchify(test_words_tensor, BATCH_SIZE)
 
 # Build RNN/LSTM model
@@ -151,6 +152,7 @@ def train():
 
     optimization_steps = 0
     checkpoint_perplexities = []
+    best_prev = inf
 
     learning_rate = LEARNING_RATE
     for epoch in range(1, NUM_EPOCHS +1):
