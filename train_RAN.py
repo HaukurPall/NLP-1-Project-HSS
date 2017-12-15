@@ -25,7 +25,7 @@ EPOCHS = 100
 BATCH_SIZE = 64
 EVAL_BATCH_SIZE = BATCH_SIZE
 CONTEXT_SIZE = 35
-WORD_EMBEDDINGS_DIMENSION = 300
+WORD_EMBEDDINGS_DIMENSION = 50
 LEARNING_RATE = 5
 MIN_LEARNING_RATE = 0.001
 LOSS_CLIP = 10
@@ -124,9 +124,9 @@ def evaluate(data_source, ran, criterion):
 
     return total_loss[0] / len(data_source)
 
-def save_perplexity(filepath, perplexity, epoch):
+def save_perplexity(filepath, perplexity, optimization_steps):
     with open(filepath, "a") as f:
-        f.write(str(epoch) + " " + str(perplexity) + "\n")
+        f.write(str(optimization_steps) + " " + str(perplexity) + "\n")
 
     return True
 
@@ -169,7 +169,7 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
 
     start_time = time.time()
 
-    checkpoint_counter = 0
+    optimization_steps = 0
     checkpoint_perplexities = []
     best_prev = inf
 
@@ -192,15 +192,15 @@ def train_RAN(training_data, learning_rate, epochs, vocab_size, word_embeddings,
 
             loss.backward()
 
-            checkpoint_counter += 1
-            if checkpoint_counter % 100 == 0:
+            optimization_steps += 1
+            if optimization_steps % 100 == 0:
 
                 checkpoint_perplexities.append(exp(evaluate(validation_data, ran, criterion)))
 
-                if checkpoint_counter % 3000 == 0:
+                if optimization_steps % 3000 == 0:
 
-                        improved, best_prev = has_improved(checkpoint_perplexities, best_prev)
-                        if not improved:
+                    improved, best_prev = has_improved(checkpoint_perplexities, best_prev)
+                    if not improved:
                         learning_rate = max(learning_rate*0.1, MIN_LEARNING_RATE)
                         print("Reduced learning rate to", learning_rate)
 
