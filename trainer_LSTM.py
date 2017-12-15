@@ -88,6 +88,7 @@ train_data = batchify(words_tensor, BATCH_SIZE)
 
 # Validation data
 valid_word_to_ix = defaultdict(lambda: word_to_ix["unknown"], word_to_ix)
+test_word_to_ix = defaultdict(lambda: word_to_ix["unknown"], word_to_ix)
 
 validation_data = DataReader(valid_data_path, read_limit=READ_LIMIT)
 validation_words = validation_data.get_words()
