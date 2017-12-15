@@ -29,7 +29,7 @@ class LSTM(nn.Module):
         self.rnn = getattr(nn, 'LSTM')(self.hidden_size, \
                                        self.hidden_size, \
                                        num_layers, \
-                                       dropout=dropout)
+                                       dropout=dropout_prob)
         self.decoder = nn.Linear(self.hidden_size, self.input_size, bias=False)
         self.decoder.weight = self.encoder.weight
         # do not train the
@@ -51,8 +51,8 @@ class LSTM(nn.Module):
 
     def init_hidden(self, batch_size):
         weight = next(self.parameters()).data
-        return (Variable(weight.new(self.num_layers, batch_size, self.num_hidden).zero_()),
-                    Variable(weight.new(self.num_layers, batch_size, self.num_hidden).zero_()))
+        return (Variable(weight.new(self.num_layers, batch_size, self.hidden_size).zero_()),
+                    Variable(weight.new(self.num_layers, batch_size, self.hidden_size).zero_()))
 
     def forward(self, input, hidden):
         emb = self.drop(self.encoder(input))
