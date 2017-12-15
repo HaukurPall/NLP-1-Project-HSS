@@ -11,6 +11,7 @@ class DataReader:
   def __init__(self, filepath="", read_limit=inf):
     self.words = []
     self.sentences = []
+
     if filepath:
       with open(filepath, "r") as f:
         for line_number, line in enumerate(f.readlines()):
@@ -32,6 +33,13 @@ class DataReader:
   def get_sentences(self):
     return self.sentences
 
+  def get_word_to_index_to_word(self):
+     w2i = defaultdict(lambda: len(w2i))
+     i2w = dict()
+     for w in self.words:
+       i2w[w2i[w]] = w # trick
+     return w2i, i2w
+
   def get_word_indexes(self):
     # Returns a dictionary containing all the words in the vocabulary
     # and their respective indexes.
@@ -39,7 +47,7 @@ class DataReader:
 
     for word in self.words:
       word_to_index[word]
-
+      
     return word_to_index
 
   def get_word_to_index_to_word(self):
@@ -48,7 +56,6 @@ class DataReader:
     for w in self.words:
       i2w[w2i[w]] = w # trick
     return w2i, i2w
-
 
 def replace_unk_with_unknown(sentence):
   return sentence.replace("<unk>", "unknown")
@@ -87,3 +94,12 @@ def get_embeddings_matrix(word_to_index, embed_dict, embed_dimension):
             pretrained_weight[word_to_index[word]] = embed_dict[word]
 
     return pretrained_weight
+
+def convert_long_tensor(words, word_to_index, words_size):
+    ids = torch.LongTensor(words_size)
+    token = 0
+    for word in words:
+        ids[token] = word_to_index[word]
+        token += 1
+
+    return ids
