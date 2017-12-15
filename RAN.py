@@ -22,11 +22,10 @@ class RAN(nn.Module):
         self.embeddings.weight.data.copy_(word_embeddings)
         self.embeddings.weight.requires_grad = False # Do not train the pre-calculated embeddings
 
-        self.linear = nn.Linear(self.hidden_size, vocab_size)
+        self.linear = nn.Linear(self.hidden_size, vocab_size, bias=False)
         self.linear.weight = self.embeddings.weight
         # do not train the
         self.linear.weight.requires_grad = True
-        self.linear.bias.data.fill_(0)
 
         if use_GPU:
             self.w_ic = nn.Parameter(torch.Tensor(self.hidden_size, self.hidden_size).cuda())
