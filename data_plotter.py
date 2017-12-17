@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
-RAN_filepath = "first_offical_run_RAN_11_31_11_batch_64_embed_300_learn_5.txt"
-LSTM_filepath = "first_official_run_LSTM_12_08_43_batch_64_embed_300_learn_5.txt"
+RAN_filepath = "perplexities/first_offical_run_RAN_11_59_40_batch_5_embed_650_learn_5.txt"
+LSTM_filepath = "perplexities/first_offical_run_LSTM_12_33_05_batch_5_embed_650_learn_5.txt"
 
 def get_data(filepath):
     x = []
@@ -21,10 +21,16 @@ LSTM_x, LSTM_y = get_data(LSTM_filepath)
 margin = 20
 
 max_x = max(LSTM_x[-1], RAN_x[-1])
-max_y = max(LSTM_y[0], RAN_y[0])
+max_y = 300
 min_y = min(LSTM_y[-1], RAN_y[-1])
 
-plt.plot(RAN_x, RAN_y)
-plt.plot(LSTM_x, LSTM_y)
+fig, ax = plt.subplots()
+
+ax.plot(RAN_x, RAN_y, label='RAN')
+ax.plot(LSTM_x, LSTM_y, label='LSTM')
+ax.legend()
+plt.title("650 unit embeddings")
 plt.axis([0, max_x, min_y - margin, max_y + margin])
-plt.show()
+plt.xlabel("Optimization steps")
+plt.ylabel("Perplexity")
+plt.savefig("650")
